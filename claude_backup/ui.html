@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c2410c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Claude Backup">
+<link rel="manifest" href="/manifest.webmanifest?t=__TOKEN__">
+<link rel="apple-touch-icon" href="/icon-180.png">
 <title>Claude Backup</title>
 <style>
 :root {
@@ -37,7 +43,7 @@ h1 { font-size: 24px; margin: 0 0 2px; } h2 { font-size: 15px; margin: 0 0 4px; 
 .sub { color: var(--muted); margin: 0 0 18px; }
 .muted { color: var(--muted); } .small { font-size: 12px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; }
 .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .tile b { display: block; } .tile .n { font-variant-numeric: tabular-nums; font-size: 13px; margin: 2px 0; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
@@ -103,14 +109,73 @@ pre.preview { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size
 .modal { background: var(--panel); border-radius: 14px; border: 1px solid var(--line); width: min(900px, 100%); max-height: 88vh; display: flex; flex-direction: column; }
 .modal header { padding: 16px 20px 4px; } .modal .body { padding: 6px 20px; overflow: auto; } .modal footer { padding: 12px 20px 16px; display: flex; gap: 8px; justify-content: flex-end; }
 .empty { color: var(--muted); padding: 14px; text-align: center; }
-@media (max-width: 760px) {
-  body { flex-direction: column; } aside { width: auto; height: auto; position: static; flex-direction: row; flex-wrap: wrap; padding: 8px; }
-  aside .brand, aside .grow, aside .foot { display: none; } main { padding: 18px 16px 120px; } #jobbar { left: 0; }
-  .split { grid-template-columns: 1fr; } .row > label.k { min-width: 100%; }
+#topbar, #tabbar { display: none; }
+input, select, textarea { max-width: 100%; }
+.tile.btn { white-space: normal; overflow-wrap: anywhere; }
+.qr { width: min(280px, 100%); background: #fff; padding: 8px; border-radius: 12px; }
+body.remote a[href="#restore"], body.remote a[href="#migrate"], body.remote a[href="#schedule"], body.remote #dexp,
+body.remote .row:has(#bexp), body.remote .row:has(#bout), body.remote .row:has(#lout),
+body.remote #lrest, body.remote #lext, body.remote #lshow, body.remote #ldel, body.remote [data-item], body.remote [data-cat],
+body.remote #cadd, body.remote #cform, body.remote [data-e], body.remote [data-x], body.remote [data-dr], body.remote [data-dl], body.remote [data-dd] { display: none !important; }
+@media (max-width: 1100px) and (min-width: 821px) {
+  aside { width: 180px; } #jobbar { left: 180px; } main { padding: 22px 20px 120px; }
+}
+@media (max-width: 820px) {
+  body { display: block; min-height: 100dvh; }
+  aside { display: none; }
+  #topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 4; background: var(--side); border-bottom: 1px solid var(--line);
+    padding: calc(8px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); }
+  #topbar .logo { width: 26px; height: 26px; } #topbar b { font-size: 16px; }
+  #tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--side); border-top: 1px solid var(--line);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  #tabbar a, #tabbar button { flex: 1; min-width: 0; min-height: 54px; display: flex; align-items: center; justify-content: center; text-align: center;
+    border: 0; background: none; color: var(--muted); font-size: 13px; text-decoration: none; padding: 4px 2px; }
+  #tabbar .active { color: var(--accent); font-weight: 600; }
+  main { max-width: none; overflow-wrap: anywhere;
+    padding: 16px max(16px, env(safe-area-inset-right)) calc(120px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  h1 { font-size: 22px; }
+  #jobbar { left: 0; bottom: calc(54px + env(safe-area-inset-bottom)); flex-wrap: wrap; gap: 8px; padding: 8px 16px; }
+  #jobbar .txt { min-width: 0; max-width: none; width: 100%; }
+  td[style*="nowrap"] { white-space: normal !important; }
+  .btn { min-height: 44px; white-space: normal; } .btn.small { min-height: 38px; padding: 6px 12px; font-size: 13px; }
+  a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
+  input[type=text], input[type=password], input[type=number], select { font-size: 16px; min-height: 44px; }
+  input[type=checkbox], input[type=radio] { width: 20px; height: 20px; flex: none; }
+  .row .grow, .row > select { flex: 1 1 100%; min-width: 0; }
+  .row > label.k { min-width: 100%; margin-bottom: -4px; }
+  .row > .btn { flex: 1 1 auto; }
+  label.opt { min-height: 32px; }
+  .card { padding: 14px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
+  .split { grid-template-columns: 1fr; }
+  .tree { max-height: none; }
+  .tree summary { flex-wrap: wrap; padding: 12px 10px; }
+  .tree .item { flex-wrap: wrap; padding: 10px; }
+  .tree .item > span:not(.meta) { flex: 1; min-width: 0; }
+  .tree .item .meta { width: 100%; margin-left: 28px; }
+  .files .f { padding: 8px 10px 8px 16px; } .files .i { padding: 8px 10px; flex-wrap: wrap; }
+  .pane { height: 48vh !important; }
+  .wiznav { flex-wrap: wrap; } .wiznav .grow { flex-basis: 100%; height: 0; }
+  .choice { padding: 14px; }
+  #toasts { left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top)); } .toast { max-width: none; }
+  .modal-back { place-items: end stretch; padding: 0; }
+  .modal { width: 100%; max-height: 92dvh; border-radius: 16px 16px 0 0; }
+  .modal footer { flex-wrap: wrap; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .modal footer .btn { flex: 1 1 auto; }
+}
+@media (max-width: 640px) {
+  .scroll { max-height: none !important; }
+  table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; width: auto !important; }
+  table.cards thead { display: none; }
+  table.cards tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  table.cards td { border: 0; padding: 3px 8px; text-align: left; white-space: normal !important; }
+  table.cards td[data-label]:not([data-label=""])::before { content: attr(data-label); display: block; font-size: 11px; color: var(--muted); }
+  table.cards td .btn { margin: 3px 2px; }
 }
 </style>
 </head>
 <body>
+<header id="topbar"><div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M4 10h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><rect x="9.5" y="12" width="5" height="1.6" rx=".8" fill="#c2410c"/></svg></div><b>Claude Backup</b></header>
 <aside>
   <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M4 10h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><rect x="9.5" y="12" width="5" height="1.6" rx=".8" fill="#c2410c"/></svg></div>
     <div><b>Claude Backup</b><small>v__VERSION__</small></div></div>
@@ -120,6 +185,7 @@ pre.preview { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size
 </aside>
 <main id="main"></main>
 <div id="jobbar"><div class="txt" id="jobtxt"></div><div class="bar"><div id="jobfill"></div></div><button class="btn small" id="jobcancel">Cancel</button></div>
+<nav id="tabbar" aria-label="Main"></nav>
 <div id="toasts"></div>
 
 <script>
@@ -142,7 +208,9 @@ const when = iso => { if (!iso) return ""; const d = new Date(iso); return isNaN
 const acctLabel = a => [a.email, `account ${short(a.account)} · org ${short(a.org)}`, a.user_skills ? a.user_skills + " skills" : "", a.current ? "signed in" : ""].filter(Boolean).join("  ·  ");
 
 async function api(path, body = {}) {
-  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify(body)});
+  let r;
+  try { r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify(body)}); }
+  catch { throw new Error(REMOTE ? "Can't reach your computer. Check it's awake, on the same Wi-Fi, and Claude Backup is running." : "The app stopped responding. Reopen Claude Backup."); }
   let j; try { j = await r.json(); } catch { throw new Error("The app stopped responding. Reopen Claude Backup."); }
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -221,11 +289,29 @@ const catGroups = (items, open = false) => CATS.map(c => {
 }).filter(Boolean);
 
 // ---------- routing ----------
+const REMOTE = "__REMOTE__" === "1";
+if (REMOTE) { document.body.classList.add("remote"); PAGES.splice(0, PAGES.length, ["dashboard", "Dashboard"], ["backup", "Back up"], ["library", "Library"], ["cloud", "Cloud & drives"], ["help", "Help"]); }
+else PAGES.splice(PAGES.findIndex(p => p[0] === "settings"), 0, ["phone", "Phone"]);
+const TABS = [["dashboard", "Home"], ["backup", "Back up"], ["library", "Library"], ["cloud", "Cloud"], REMOTE ? ["help", "Help"] : ["more", "More"]];
+$("#tabbar").innerHTML = TABS.map(([k, l]) => k === "more" ? `<button id="tabmore" type="button">${l}</button>` : `<a href="#${k}" data-k="${k}">${l}</a>`).join("");
+if ($("#tabmore")) $("#tabmore").onclick = () => {
+  modal("All screens", PAGES.map(([k, l]) => `<a class="btn" href="#${k}" style="display:flex;margin:6px 0;text-decoration:none;color:inherit;align-items:center">${esc(l)}</a>`).join(""));
+  $$(".modal-back .body a").forEach(a => a.addEventListener("click", () => a.closest(".modal-back").remove()));
+};
+function labelTables() {
+  $$("table:not(.cards)").forEach(t => t.classList.add("cards"));
+  $$("table.cards").forEach(t => {
+    const heads = $$(":scope > thead th", t).map(th => th.textContent.trim());
+    $$(":scope > tbody > tr", t).forEach(tr => [...tr.children].forEach((td, i) => { if (heads[i] && td.colSpan === 1) td.dataset.label = heads[i]; }));
+  });
+}
+new MutationObserver(labelTables).observe(document.getElementById("main"), {childList: true, subtree: true});
+new MutationObserver(labelTables).observe(document.body, {childList: true});
 $("#nav").innerHTML = PAGES.map(([k, l]) => `<a href="#${k}" data-k="${k}">${l}</a>`).join("");
 window.onhashchange = () => show(location.hash.slice(1));
 async function show(key) {
   if (!PAGES.some(p => p[0] === key)) key = "dashboard";
-  $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.k === key));
+  $$("#nav a, #tabbar a").forEach(a => a.classList.toggle("active", a.dataset.k === key));
   const m = $("#main"); m.innerHTML = "";
   try { await PAGE[key](m); } catch (e) { m.innerHTML += `<div class="note bad">${esc(e.message)}</div>`; }
 }
@@ -260,6 +346,7 @@ PAGE.dashboard = async m => {
       <table><thead><tr><th>Account</th><th>Account ID</th><th>Organization ID</th><th class="num">Your skills</th></tr></thead><tbody>
       ${S.accounts.map(a => `<tr><td>${esc(a.email || "")} ${a.current ? '<span class="pill ok">signed in</span>' : ""}</td><td class="mono">${esc(a.account)}</td><td class="mono">${esc(a.org)}</td><td class="num">${a.user_skills}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">None found</td></tr>`}</tbody></table></div>
     <div class="note info">Artifacts and chats are stored on claude.ai, not on this computer. To back them up, request a data export in Claude (Settings → Privacy → Export data), then add the zip under <a href="#artifacts">Artifacts</a> or <a href="#backup">Back up</a>. <button class="btn small" id="dexp">Request export</button></div>`);
+  if (REMOTE) m.insertAdjacentHTML("beforeend", `<div class="note info">Connected to your computer. Restores, moving accounts and settings are done on the computer.</div>`);
   $("#dqb").onclick = () => doBackup({});
   $("#dexp").onclick = () => openUrl(S.export_url);
 };
@@ -270,7 +357,7 @@ async function doBackup(body) {
     const copies = (r.copies || []).map(c => `<div class="note ${c.ok ? "ok" : "bad"}">${c.ok ? "Copied to" : "Couldn't copy to"} <b>${esc(c.name)}</b>: ${esc(c.message)}</div>`).join("");
     const go = await modal("Backup created", `<div class="note ok">Saved ${r.items} items (${size(r.size)}).</div><code>${esc(r.path)}</code>${copies}
       ${!(r.copies || []).length ? `<p class="muted small">Tip: keep a copy off this computer. Add an external drive or a cloud under <a href="#cloud">Cloud &amp; drives</a>.</p>` : ""}`,
-      [["Show file", "reveal"], ["Open in Library", "lib", "primary"]]);
+      [...(REMOTE ? [] : [["Show file", "reveal"]]), ["Open in Library", "lib", "primary"]]);
     if (go === "reveal") reveal(r.path);
     if (go === "lib") { state.library.path = r.path; location.hash = "library"; }
     return r;
@@ -823,7 +910,7 @@ PAGE.cloud = async m => {
   $$("[data-e]").forEach(b => b.onclick = () => destForm(r, cfgOf(b.dataset.e)));
   $$("[data-b]").forEach(b => b.onclick = () => browseDest(cfgOf(b.dataset.b)));
   $("#cadd").onclick = () => destForm(r, null);
-  if (!r.destinations.length) destForm(r, null);
+  if (!r.destinations.length && !REMOTE) destForm(r, null);
 };
 
 async function browseDest(d) {
@@ -918,6 +1005,28 @@ function destForm(r, d) {
   };
   kind ? drawForm({}) : drawKinds();
 }
+
+PAGE.phone = async m => {
+  head(m, "Use on your phone", "Open Claude Backup on your iPhone or Android phone. Your Claude data stays on this computer; the phone connects to it over your Wi-Fi.");
+  const box = document.createElement("div"); m.append(box);
+  const draw = s => {
+    box.innerHTML = `<div class="card"><h2>${s.on ? "Phone access is on" : "Phone access is off"}</h2>
+      ${s.on ? `<div class="row" style="align-items:flex-start;gap:20px"><div class="qr">${s.qr}</div><div style="flex:1 1 260px;min-width:0"><ol>
+        <li>Connect the phone to the same Wi-Fi as this computer.</li><li>Point the phone's camera at the code and open the link.</li>
+        <li>The phone warns that the connection isn't private, because this certificate is made by your own computer. Check the address matches the one below, then choose <b>Advanced → Proceed</b> (Android) or <b>Show Details → visit this website</b> (iPhone).</li>
+        <li>Save it: on iPhone, Share → <b>Add to Home Screen</b>; on Android, Chrome menu → <b>Add to Home screen</b>.</li></ol></div></div>
+        <div class="note warn">Anyone with this code can back up and read your backups while they're on your network. Don't share it, and use trusted Wi-Fi only.</div>
+        <div class="row"><button class="btn" id="mcopy">Copy link</button><button class="btn danger" id="moff">Turn off</button><button class="btn danger" id="mreset">Disconnect all phones</button></div>`
+      : `<p class="muted">Off by default, and it turns off again whenever Claude Backup quits. Your computer must stay awake and the app must stay running while you use the phone.</p>
+        <div class="row"><button class="btn primary" id="mon">Turn on phone access</button></div>`}</div>
+      <div class="card"><h2>What works on a phone</h2><p><b>On the phone:</b> see status, create backups, browse and verify backups, test destinations, list cloud backups, and copy backups to a drive or cloud.</p>
+      <p class="muted"><b>Computer only:</b> restores, moving accounts, undo, schedules, settings and adding destinations. These change your Claude setup or need Claude Desktop closed and signed in.</p></div>`;
+    const act = (id, path) => { if ($(id)) $(id).onclick = async () => { try { draw(await api(path)); } catch (e) { fail(e); } }; };
+    act("#mon", "/api/mobile/start"); act("#moff", "/api/mobile/stop"); act("#mreset", "/api/mobile/reset");
+    if ($("#mcopy")) $("#mcopy").onclick = () => navigator.clipboard.writeText(s.url).then(() => toast("Link copied.", "ok"));
+  };
+  draw(await api("/api/mobile"));
+};
 
 // ---------- help ----------
 function md(src) {

@@ -63,6 +63,7 @@ def main(argv=None):
     s = sub.add_parser("ui", help="open the app in your web browser (default)")
     s.add_argument("--port", type=int, default=0)
     s.add_argument("--no-browser", action="store_true")
+    s.add_argument("--detach", action="store_true", help="keep running in the background after this command exits")
 
     s = sub.add_parser("scan", help="show what can be backed up")
     s.add_argument("--accounts", default="current", choices=["current", "all"])
@@ -160,6 +161,22 @@ def main(argv=None):
             else:
                 run(env)
                 return 0
+        if args.cmd == "ui" and args.detach:
+            import subprocess
+            from .web import running_url
+            url = running_url()
+            if url:
+                if not args.no_browser:
+                    import webbrowser
+                    webbrowser.open(url)
+                return 0
+            cmd = [sys.executable, "-m", "claude_backup", "ui"]
+            if args.port:
+                cmd += ["--port", str(args.port)]
+            if args.no_browser:
+                cmd.append("--no-browser")
+            subprocess.Popen(cmd, stdin=subprocess.DEVNULL, start_new_session=True)
+            return 0
         if args.cmd in (None, "gui", "ui"):
             from .web import serve
             serve(env, port=getattr(args, "port", 0), open_browser=not getattr(args, "no_browser", False))

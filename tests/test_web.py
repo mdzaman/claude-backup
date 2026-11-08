@@ -1,6 +1,7 @@
 """End-to-end tests of the browser app's HTTP API against fake Claude installs."""
 import json
 import os
+import ssl
 import tempfile
 import threading
 import time
@@ -9,6 +10,7 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse
 from unittest import mock
 
 from claude_backup import web
@@ -213,6 +215,69 @@ class WebTest(unittest.TestCase):
         a.api("/api/destinations/remove", {"id": s3["id"]})
         self.assertIsNone(a.server.settings.secrets.get(s3["id"]))
         self.assertIn("Copy", a.api("/api/help")["text"])
+
+    def test_phone_access(self):
+        a = self.a
+        self.assertFalse(a.api("/api/mobile")["on"])
+        with mock.patch.object(web.mobile, "lan_ip", return_value="127.0.0.1"):
+            st = a.api("/api/mobile/start")
+        self.addCleanup(a.server.stop_mobile)
+        self.assertTrue(st["on"])
+        self.assertIn("<svg", st["qr"])
+        u = urlparse(st["url"])
+        self.assertEqual(u.scheme, "https")
+        token = u.query[2:]
+        self.assertNotEqual(token, a.server.token)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname, ctx.verify_mode = False, ssl.CERT_NONE
+
+        def phone(path, body=None, tok=token):
+            req = urllib.request.Request("https://%s%s" % (u.netloc, path), data=json.dumps(body or {}).encode(),
+                                         headers={"X-Token": tok, "Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=20, context=ctx) as r:
+                    return r.status, json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                try:
+                    return e.code, json.loads(e.read())
+                finally:
+                    e.close()
+
+        self.assertEqual(phone("/api/scan", tok=a.server.token)[0], 403)     # the computer's token doesn't work
+        self.assertEqual(phone("/api/scan", tok="")[0], 403)
+        self.assertEqual(phone("/api/scan")[0], 200)
+        with urllib.request.urlopen("https://%s/?t=%s" % (u.netloc, token), context=ctx, timeout=20) as r:
+            html = r.read().decode()
+        self.assertIn('"1" === "1"', html)
+        for blocked in ("/api/restore", "/api/migrate", "/api/undo", "/api/pick", "/api/reveal", "/api/open", "/api/quit",
+                        "/api/delete-backup", "/api/extract", "/api/schedule/save", "/api/destinations/save",
+                        "/api/destinations/delete", "/api/rclone/config", "/api/mobile/stop", "/api/artifacts/load"):
+            self.assertEqual(phone(blocked)[0], 403, blocked)
+        # Settings can be read but not changed
+        self.assertEqual(phone("/api/settings", {"out_dir": "/tmp/evil"})[0], 200)
+        self.assertIsNone(a.server.settings["out_dir"])
+        # A phone can back up, but only into the normal folder, and only read backups there
+        code, r = phone("/api/backup", {"categories": ["prompts"], "out": "/tmp/evil-out"})
+        self.assertEqual(code, 200)
+        for _ in range(300):
+            j = phone("/api/job", {"id": r["job"]})[1]
+            if j["state"] != "running":
+                break
+            time.sleep(0.02)
+        self.assertEqual(j["state"], "done", j)
+        self.assertEqual(Path(j["result"]["path"]).parent, a.server.settings.out_dir)
+        self.assertEqual(phone("/api/contents", {"path": j["result"]["path"]})[0], 200)
+        self.assertEqual(phone("/api/contents", {"path": str(self.home_a / ".claude.json")})[0], 403)
+        # Disconnecting replaces the token
+        with mock.patch.object(web.mobile, "lan_ip", return_value="127.0.0.1"):
+            st2 = a.api("/api/mobile/reset")
+        u = urlparse(st2["url"])
+        self.assertEqual(phone("/api/scan")[0], 403)
+        self.assertEqual(phone("/api/scan", tok=u.query[2:])[0], 200)
+        a.api("/api/mobile/stop")
+        self.assertFalse(a.api("/api/mobile")["on"])
+        self.assertFalse(web.mobile.is_private_client("8.8.8.8"))
+        self.assertTrue(web.mobile.is_private_client("192.168.1.9"))
 
     def test_schedule_and_settings(self):
         with mock.patch.object(web.schedule, "install") as inst, \

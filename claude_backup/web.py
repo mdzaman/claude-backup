@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, destinations as D, engine, schedule
+from . import __version__, destinations as D, engine, mobile, schedule
 from .claude_ai_export import read_export
 from .settings import Settings
 
@@ -132,6 +132,10 @@ class Server:
         self.exports = {}            # zip path -> {"index": [...], "data": {rel: bytes}, "prompts": n}
         self.last_seen = time.time()
         self.httpd = None
+        self.pairing = mobile.Pairing(self.settings.path.parent)
+        self.mobile_httpd = None
+        self.mobile_token = None
+        self.mobile_url = None
 
     # -- jobs ----------------------------------------------------------------
     def start(self, title, fn, on_done=None):
@@ -455,6 +459,23 @@ class Server:
             return {"settings": st.data, "out": str(st.out_dir),
                     "roots": {k: str(v) for k, v in env.roots.items()},
                     "settings_file": str(st.path)}
+        if path == "/api/mobile":
+            return self.mobile_status()
+        if path == "/api/mobile/start":
+            self.start_mobile()
+            return self.mobile_status()
+        if path == "/api/mobile/stop":
+            self.stop_mobile()
+            self.log("Phone access turned off")
+            return self.mobile_status()
+        if path == "/api/mobile/reset":
+            was_on = bool(self.mobile_httpd)
+            self.stop_mobile()
+            self.pairing.rotate()
+            self.log("Paired phones disconnected")
+            if was_on:
+                self.start_mobile()
+            return self.mobile_status()
         if path == "/api/help":
             return {"text": GUIDE_FILE.read_text(encoding="utf-8") if GUIDE_FILE.exists() else "The user guide is missing."}
         if path == "/api/pick":
@@ -509,12 +530,45 @@ class Server:
         self.log(("Updated" if existing else "Added") + " destination " + cfg["name"])
         return {"destination": self._public(cfg)}
 
+    # -- phone access -----------------------------------------------------------
+    def start_mobile(self):
+        if self.mobile_httpd:
+            return
+        ip = mobile.lan_ip()
+        if not ip:
+            raise engine.BackupError("This computer isn't connected to a network.")
+        self.pairing.ensure_certificate(ip)
+        self.mobile_token = self.pairing.token()
+        handler = make_handler(self, remote=True)
+        try:
+            httpd = QuietServer(("0.0.0.0", mobile.DEFAULT_PORT), handler)
+        except OSError:
+            httpd = QuietServer(("0.0.0.0", 0), handler)
+        httpd.socket = self.pairing.ssl_context().wrap_socket(
+            httpd.socket, server_side=True, do_handshake_on_connect=False)
+        self.mobile_httpd = httpd
+        self.mobile_url = "https://%s:%d/?t=%s" % (ip, httpd.server_address[1], self.mobile_token)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.log("Phone access turned on at %s:%d" % (ip, httpd.server_address[1]))
+
+    def stop_mobile(self):
+        httpd, self.mobile_httpd = self.mobile_httpd, None
+        self.mobile_token = self.mobile_url = None
+        if httpd:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def mobile_status(self):
+        on = bool(self.mobile_httpd)
+        return {"on": on, "url": self.mobile_url, "qr": mobile.qr_svg(self.mobile_url) if on else None}
+
     def _export(self, zp):
         if zp not in self.exports:
             raise engine.BackupError("Load the export first.")
         return self.exports[zp]
 
     def shutdown(self):
+        self.stop_mobile()
         try:
             state_file().unlink()
         except OSError:
@@ -525,15 +579,48 @@ class Server:
     def watch_idle(self):
         while True:
             time.sleep(30)
-            busy = any(j.state == "running" for j in self.jobs.values())
+            busy = self.mobile_httpd or any(j.state == "running" for j in self.jobs.values())
             if not busy and time.time() - self.last_seen > IDLE_SHUTDOWN:
                 print("No open page for a while; stopping.", flush=True)
                 self.shutdown()
                 return
 
 
-def make_handler(server):
+class QuietServer(ThreadingHTTPServer):
+    """Phone listener: failed TLS handshakes (self-signed cert warnings) are routine."""
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        pass
+
+
+ICON_SVG = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" '
+            b'fill="#c2410c"/><rect x="110" y="150" width="292" height="64" rx="18" fill="#fff"/><rect x="130" y="224" '
+            b'width="252" height="168" rx="18" fill="#fff"/><rect x="212" y="262" width="88" height="28" rx="14" '
+            b'fill="#c2410c"/></svg>')
+_touch_icon = {}
+
+
+def touch_icon():
+    if "png" not in _touch_icon:
+        from .macapp import icon_png
+        _touch_icon["png"] = icon_png(180)
+    return _touch_icon["png"]
+
+
+def make_handler(server, remote=False):
     class Handler(BaseHTTPRequestHandler):
+        timeout = 60 if remote else None
+
+        def _token(self):
+            return (server.mobile_token if remote else server.token) or ""
+
+        def _client_ok(self):
+            if remote and not mobile.is_private_client(self.client_address[0]):
+                self._send(403, b"Forbidden", "text/plain")
+                return False
+            return True
+
         def log_message(self, *a):
             pass
 
@@ -552,17 +639,32 @@ def make_handler(server):
         def do_GET(self):
             url = urlparse(self.path)
             qs = parse_qs(url.query)
+            if not self._client_ok():
+                return None
             if url.path == "/ping":
                 return self._send(200, {"app": "claude-backup", "version": __version__})
-            if qs.get("t", [""])[0] != server.token:
-                return self._send(403, b"Open Claude Backup from its app icon or launcher.", "text/plain")
+            if url.path == "/icon.svg":
+                return self._send(200, ICON_SVG, "image/svg+xml")
+            if url.path == "/icon-180.png":
+                return self._send(200, touch_icon(), "image/png")
+            token = self._token()
+            if not token or not secrets.compare_digest(qs.get("t", [""])[0].encode(), token.encode()):
+                msg = b"Scan the QR code on your computer again." if remote else b"Open Claude Backup from its app icon or launcher."
+                return self._send(403, msg, "text/plain")
             server.last_seen = time.time()
+            if url.path == "/manifest.webmanifest":
+                return self._send(200, {
+                    "name": "Claude Backup", "short_name": "Claude Backup", "display": "standalone",
+                    "start_url": "/?t=" + token, "scope": "/", "background_color": "#f6f5f1", "theme_color": "#c2410c",
+                    "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+                              {"src": "/icon-180.png", "sizes": "180x180", "type": "image/png"}],
+                }, "application/manifest+json")
             if url.path == "/":
-                html = UI_FILE.read_text(encoding="utf-8").replace("__TOKEN__", server.token) \
-                    .replace("__VERSION__", __version__)
+                html = UI_FILE.read_text(encoding="utf-8").replace("__TOKEN__", token) \
+                    .replace("__VERSION__", __version__).replace("__REMOTE__", "1" if remote else "0")
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8",
                                   {"Content-Security-Policy": "default-src 'self' 'unsafe-inline'; img-src 'self' data:"})
-            if url.path == "/artifact":
+            if url.path == "/artifact" and not remote:
                 # View an artifact in its own sandboxed origin: it can't reach the API.
                 zp, f = qs.get("zip", [""])[0], qs.get("file", [""])[0]
                 try:
@@ -578,7 +680,10 @@ def make_handler(server):
             return self._send(404, {"error": "not found"})
 
         def do_POST(self):
-            if not secrets.compare_digest(self.headers.get("X-Token", ""), server.token):
+            if not self._client_ok():
+                return None
+            token = self._token()
+            if not token or not secrets.compare_digest(self.headers.get("X-Token", "").encode(), token.encode()):
                 return self._send(403, {"error": "forbidden"})
             server.last_seen = time.time()
             length = int(self.headers.get("Content-Length") or 0)
@@ -586,8 +691,13 @@ def make_handler(server):
                 body = json.loads(self.rfile.read(length) or b"{}")
             except ValueError:
                 return self._send(400, {"error": "bad json"})
+            path = urlparse(self.path).path
             try:
-                return self._send(200, server.route(urlparse(self.path).path, body))
+                if remote:
+                    body = mobile.sanitize_remote(path, body, server.settings.out_dir)
+                return self._send(200, server.route(path, body))
+            except PermissionError as e:
+                return self._send(403, {"error": str(e)})
             except (engine.BackupError, D.DestinationError, FileNotFoundError, KeyError) as e:
                 msg = str(e) if isinstance(e, engine.BackupError) else "Not found: %s" % e
                 return self._send(400, {"error": msg})

@@ -16,6 +16,7 @@ Claude Backup saves your Claude Desktop and Claude Code data (skills, plugins, p
 - [Upload skills and plugins to an account](#upload-skills-and-plugins-to-an-account)
 - [Cloud and drives](#cloud-and-drives)
 - [Automatic backups](#automatic-backups)
+- [Use on your phone](#use-on-your-phone)
 - [Library](#library)
 - [Artifacts screen](#artifacts-screen)
 - [Undo a restore](#undo-a-restore)
@@ -57,7 +58,8 @@ Or download the ZIP from GitHub (Code → Download ZIP) and unzip it.
 Claude Backup opens in your web browser. Behind the page, a small server runs on your computer only (`127.0.0.1`). Nothing is sent anywhere unless you add a cloud destination.
 
 - Opening the app again while it's running brings back the same page instead of starting a second copy.
-- To stop it, use **Settings → Quit Claude Backup**, or close the tab: it stops by itself after 15 minutes with no page open and no task running.
+- On a Mac, the app stays in the Dock while it's running. Click its icon to reopen the page, and quit it from the Dock to stop it.
+- You can also use **Settings → Quit Claude Backup**, or close the tab: it stops by itself after 15 minutes with no page open, no task running and phone access off.
 - `make-app` uses the newest Python it finds. If you install a newer Python, or move the project folder, run `make-app` again.
 
 ## Quick start
@@ -288,6 +290,29 @@ Scheduled backups are also copied to every destination marked **Copy every new b
 
 The schedule uses your system's own scheduler: a LaunchAgent on macOS (`~/Library/LaunchAgents/com.claudebackup.auto.plist`), Task Scheduler on Windows (task `ClaudeBackupAuto`), and cron on Linux. Your computer must be awake. On macOS, a missed run happens when it wakes.
 
+## Use on your phone
+
+Claude Backup works on iPhone and Android as a home-screen app. Claude's data lives on your computer, so the phone connects to the app running there over your Wi-Fi. There's nothing to install from an app store. The page also adapts to any phone, tablet or desktop window.
+
+**Set it up:**
+
+1. On the computer, open **More → Phone** (or **Phone** in the sidebar) and click **Turn on phone access**. If your firewall asks, allow incoming connections.
+2. Connect the phone to the same Wi-Fi and scan the QR code with its camera.
+3. The phone warns that the connection isn't private, because the secure certificate was made by your own computer. Check that the address matches, then continue:
+   - iPhone (Safari): **Show Details → visit this website**.
+   - Android (Chrome): **Advanced → Proceed**.
+4. Add it to your home screen:
+   - iPhone: Share → **Add to Home Screen**.
+   - Android: Chrome menu → **Add to Home screen**.
+
+**On the phone you can** see status, create backups, browse and verify backups, test destinations, list cloud backups, and copy backups to a drive or cloud.
+
+**Only on the computer:** restores, moving accounts, undo, schedules, settings and adding destinations. These change your Claude setup or need Claude Desktop closed and signed in.
+
+The computer must be awake with Claude Backup running. Phone access turns off when the app quits; turn it on again and your home-screen icon keeps working, unless the computer's network address changed, in which case scan the code again.
+
+**Keep it safe:** use it on Wi-Fi you trust and don't share the code, since anyone who has it can create and read backups while on your network. **Turn off** closes access, and **Disconnect all phones** makes every earlier code stop working.
+
 ## Library
 
 **Library** lists every backup in your backup folder. Click one to:
@@ -366,7 +391,8 @@ Exit codes: `0` success, `2` error, `3` backup made but a copy to a destination 
 ## Security and privacy
 
 - Everything runs on your computer. Nothing leaves it except copies you send to destinations you add.
-- The app's page and server listen on `127.0.0.1` only. Every request needs a random key created at launch, which only the page you opened knows.
+- The app listens on `127.0.0.1` only, unless you turn on phone access. Every request needs a random key created at launch, which only the page you opened knows.
+- Phone access is off by default and ends when the app quits. It uses HTTPS with a certificate made on your computer, a separate key, accepts private-network devices only, and can't restore, undo, change settings or delete anything.
 - Backups are **not encrypted**. They can contain MCP API keys (unless you tick **Remove API keys and tokens**), transcripts of your Claude Code sessions, and your prompts. Treat them like your documents:
   - Keep cloud buckets and containers private.
   - Prefer providers that encrypt at rest (S3, Azure, Google Drive and OneDrive all do).
@@ -390,6 +416,8 @@ Exit codes: `0` success, `2` error, `3` backup made but a copy to a destination 
 - S3: `AccessDenied` means the key lacks permissions. `PermanentRedirect` or `AuthorizationHeaderMalformed` means the region is wrong. `SignatureDoesNotMatch` means the secret key is wrong.
 - Azure: `AuthenticationFailed` usually means the SAS token expired. Generate a new one with all six permissions.
 - rclone: run `rclone lsd name:` in a terminal to check the remote. Run `rclone config reconnect name:` if its sign-in expired.
+
+**The phone can't connect.** Check it's on the same Wi-Fi, that guest-network isolation is off, that the computer is awake, and that phone access is on. Allow Claude Backup through the computer's firewall. If the network address changed, scan the new code.
 
 **The app doesn't open.** Run `python3 -m claude_backup` in a terminal to see errors, and check `~/.claude-backup/app.log`. If a page says "Open Claude Backup from its app icon", the app was restarted: open it again from its icon.
 

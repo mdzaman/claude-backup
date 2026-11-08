@@ -5,7 +5,7 @@ Back up, restore and migrate your **Claude Desktop** and **Claude Code** data: s
 > Independent open-source project. Not affiliated with, endorsed by or supported by Anthropic. "Claude" is a trademark of Anthropic, PBC.
 
 - **No dependencies.** Python 3.8+ standard library only. Runs on macOS, Windows and Linux.
-- **Runs in your browser.** A local app with a guided migration wizard, plus a full command line.
+- **Runs in your browser, on any screen.** A fully responsive local app with a guided migration wizard and a full command line. Pair an iPhone or Android phone as a home-screen remote.
 - **Safe by default.** Preview every restore, undo any restore, verify checksums, and sign-in tokens are never backed up.
 
 ## Features
@@ -19,6 +19,7 @@ Back up, restore and migrate your **Claude Desktop** and **Claude Code** data: s
 | **Artifacts** | Rebuilds every artifact from a claude.ai data export at its final version, as real files |
 | **Automatic** | Daily or weekly backups with launchd, Task Scheduler or cron, even when the app is closed |
 | **Library** | Browse inside backups, preview files, verify, extract, copy to a cloud |
+| **Phone** | Optional, off by default: scan a QR code to use the computer's app from an iPhone or Android phone over Wi-Fi (HTTPS, separate key, no restores or deletes) |
 | **Undo** | Every restore saves a snapshot of the files it changes, so it can be undone |
 
 ## Quick start
@@ -77,6 +78,7 @@ A backup is a zip (`*.claudebackup`) holding `manifest.json` and a `data/` tree.
 | `claude_backup/claude_ai_export.py` | Rebuild artifacts, prompts and projects from a claude.ai export |
 | `claude_backup/destinations.py` | Folder, S3 (SigV4), Azure Blob (SAS) and rclone destinations |
 | `claude_backup/web.py`, `ui.html` | Local server with background tasks, and the browser app |
+| `claude_backup/mobile.py` | Phone pairing, HTTPS, QR code and the phone's allowed actions |
 | `claude_backup/schedule.py` | launchd, Task Scheduler and cron |
 | `claude_backup/cli.py` | Command line |
 | `claude_backup/gui.py` | Older Tk window (`python3 -m claude_backup gui`) |

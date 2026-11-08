@@ -1,6 +1,6 @@
 """Build a double-clickable ``Claude Backup.app`` for macOS.
 
-The bundle is a thin launcher: it starts the browser version of this
+The bundle is a small stay-open applet: it starts the browser version of this
 project's code with the newest Python installed, so the app picks up any
 update to the project folder.
 """
@@ -128,51 +128,73 @@ def latest_python():
     return found[max(found)]
 
 
+APPLET = """
+property missed : 0
+
+on openApp()
+\tset missed to 0
+\tdo shell script %s
+end openApp
+
+on run
+\topenApp()
+end run
+
+on reopen
+\topenApp()
+end reopen
+
+on idle
+\ttry
+\t\tdo shell script "pgrep -f -- '-m claude_backup ui$'"
+\t\tset missed to 0
+\ton error
+\t\tset missed to missed + 1
+\t\tif missed > 1 then quit
+\tend try
+\treturn 15
+end idle
+
+on quit
+\ttry
+\t\tdo shell script "pkill -f -- '-m claude_backup ui$'"
+\tend try
+\tcontinue quit
+end quit
+"""
+
+
 def build(dest=None, python=None):
+    """Build a stay-open applet.
+
+    The applet must keep running: macOS stops what an .app started once the
+    app exits, even in a new session. Clicking it reopens the page, and
+    quitting it stops the server.
+    """
     dest = Path(dest or PROJECT / "dist")
     python = python or latest_python()
     app = dest / (APP_NAME + ".app")
     if app.exists():
         shutil.rmtree(app)
-    macos = app / "Contents" / "MacOS"
-    res = app / "Contents" / "Resources"
-    macos.mkdir(parents=True)
-    res.mkdir(parents=True)
-
-    launcher = macos / APP_NAME
-    launcher.write_text(
-        "#!/bin/bash\n"
-        "# Launches Claude Backup from its project folder.\n"
-        "PROJECT=%s\n"
-        "PY=%s\n"
-        "if [ ! -d \"$PROJECT/claude_backup\" ]; then\n"
-        "  osascript -e 'display alert \"Claude Backup\" message \"The project folder was moved. "
-        "Rebuild the app with: python3 -m claude_backup make-app\"'\n"
-        "  exit 1\n"
-        "fi\n"
-        "mkdir -p \"$HOME/.claude-backup\"\n"
-        "# Start the local server in the background (or reopen the page if it's already\n"
-        "# running) and exit, so the app doesn't sit in the Dock.\n"
-        "cd \"$PROJECT\" && nohup \"$PY\" -m claude_backup ui >> \"$HOME/.claude-backup/app.log\" 2>&1 &\n"
-        % (_sh(str(PROJECT)), _sh(python)))
-    launcher.chmod(0o755)
+    dest.mkdir(parents=True, exist_ok=True)
     (Path.home() / ".claude-backup").mkdir(exist_ok=True)
-
-    with open(app / "Contents" / "Info.plist", "wb") as f:
-        plistlib.dump({
-            "CFBundleName": APP_NAME,
-            "CFBundleDisplayName": APP_NAME,
-            "CFBundleIdentifier": "com.claudebackup.app",
-            "CFBundleVersion": __version__,
-            "CFBundleShortVersionString": __version__,
-            "CFBundleExecutable": APP_NAME,
-            "CFBundleIconFile": "AppIcon",
-            "CFBundlePackageType": "APPL",
-            "LSMinimumSystemVersion": "10.13",
-            "NSHighResolutionCapable": True,
-        }, f)
-
-    _make_icns(res / "AppIcon.icns")
+    shell = ('export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH; cd %s && %s -m claude_backup ui --detach '
+             '>> "$HOME/.claude-backup/app.log" 2>&1' % (_sh(str(PROJECT)), _sh(python)))
+    literal = '"' + shell.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "app.applescript"
+        src.write_text(APPLET % literal, encoding="utf-8")
+        subprocess.run(["osacompile", "-s", "-o", str(app), str(src)], check=True, capture_output=True, text=True)
+    info = app / "Contents" / "Info.plist"
+    with open(info, "rb") as f:
+        data = plistlib.load(f)
+    data.update(CFBundleName=APP_NAME, CFBundleDisplayName=APP_NAME, CFBundleIdentifier="com.claudebackup.app",
+                CFBundleVersion=__version__, CFBundleShortVersionString=__version__, CFBundleIconFile="AppIcon")
+    data.pop("CFBundleIconName", None)
+    with open(info, "wb") as f:
+        plistlib.dump(data, f)
+    _make_icns(app / "Contents" / "Resources" / "AppIcon.icns")
+    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], capture_output=True)
     subprocess.run(["touch", str(app)])
     return app
 

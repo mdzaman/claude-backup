@@ -7,6 +7,7 @@ Please **don't** open a public issue for security problems. Use GitHub's **Repor
 ## Design notes
 
 - The app listens on `127.0.0.1` only. Every API request needs a random token generated at launch.
+- Optional phone access is off by default and stops when the app quits. It adds an HTTPS listener with a self-signed certificate and a separate token, accepts private-network clients only, and allows only the calls in `mobile.REMOTE_ALLOW`. Parameters choosing arbitrary paths are removed or rejected.
 - Artifacts are viewed from a sandboxed origin (`Content-Security-Policy: sandbox`), so they can't call the API.
 - Sign-in tokens, `.credentials.json`, cookies and device keys are never collected.
 - Destination secrets are stored in the macOS Keychain. Elsewhere they're stored in `~/.claude-backup/secrets.json` with mode `0600`, never in the settings file.

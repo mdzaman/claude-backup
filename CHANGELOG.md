@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- Fully responsive interface for phones, tablets and desktops, with bottom navigation, card-style tables and larger touch targets.
+- Phone access for iPhone and Android: QR pairing over HTTPS, home-screen install, and a restricted set of actions. Off by default.
+
 ## 1.1.0
 
 - Cloud and drive destinations: external drives; synced folders (Google Drive, OneDrive, Dropbox, iCloud Drive, Box); Amazon S3 and S3-compatible storage (SigV4, no SDK needed); Azure Blob Storage (SAS); any rclone remote.
