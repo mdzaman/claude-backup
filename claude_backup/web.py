@@ -12,6 +12,7 @@ import os
 import platform
 import secrets
 import shutil
+import socketserver
 import subprocess
 import sys
 import tempfile
@@ -589,6 +590,11 @@ class Server:
 class QuietServer(ThreadingHTTPServer):
     """Phone listener: failed TLS handshakes (self-signed cert warnings) are routine."""
     daemon_threads = True
+
+    def server_bind(self):
+        # HTTPServer.server_bind does a reverse DNS lookup that can stall for a long time.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
     def handle_error(self, request, client_address):
         pass
