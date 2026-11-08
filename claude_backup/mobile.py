@@ -108,9 +108,13 @@ class Pairing:
             raise BackupError("Phone access needs OpenSSL to create its secure connection, and it wasn't found.")
         self.dir.mkdir(parents=True, exist_ok=True)
         os.chmod(str(self.dir), 0o700)
-        r = subprocess.run([exe, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "825",
-                            "-keyout", str(self.key), "-out", str(self.cert), "-subj", "/CN=Claude Backup",
-                            "-addext", "subjectAltName=IP:%s" % ip], capture_output=True, text=True)
+        try:
+            r = subprocess.run([exe, "req", "-x509", "-new", "-newkey", "rsa:2048", "-nodes", "-sha256", "-days", "825",
+                                "-keyout", str(self.key), "-out", str(self.cert), "-subj", "/CN=Claude Backup",
+                                "-addext", "subjectAltName=IP:%s" % ip],
+                               stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            raise BackupError("Creating the secure connection timed out.")
         if r.returncode:
             raise BackupError("Couldn't create the secure connection: " + r.stderr.strip()[-200:])
         os.chmod(str(self.key), 0o600)
