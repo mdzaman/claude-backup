@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+.DS_Store
+
+# Never commit backups, restores or local app state
+*.claudebackup
+*.claudebackup.part
+ClaudeBackups/
+.claude-backup/
+secrets.json

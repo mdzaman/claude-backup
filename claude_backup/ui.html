@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Backup</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --side: #efede7; --sel: #e3ddd0; --ink: #1f1e1b; --muted: #6b675e; --line: #e4e1d8;
+  --accent: #c2410c; --accent-ink: #ffffff; --accent-soft: #fbeee6;
+  --ok: #15803d; --ok-soft: #e7f5ec; --warn: #8a5300; --warn-soft: #fdf6e3; --bad: #b91c1c; --bad-soft: #fdecec;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1917; --panel: #24231f; --side: #1f1e1c; --sel: #3a2a21; --ink: #ecebe6; --muted: #a29e93; --line: #37352f;
+    --accent: #f08a5d; --accent-ink: #1a1917; --accent-soft: #3a2a21;
+    --ok: #4ade80; --ok-soft: #1d3326; --warn: #facc15; --warn-soft: #3a3318; --bad: #f87171; --bad-soft: #3d2222;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; }
+button, input, select { font: inherit; color: inherit; }
+aside { width: 220px; flex: none; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 18px 10px; position: sticky; top: 0; height: 100vh; }
+.brand { display: flex; gap: 10px; align-items: center; padding: 0 8px 18px; }
+.logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
+.logo svg { width: 18px; height: 18px; }
+.brand b { display: block; font-size: 15px; } .brand small { color: var(--muted); font-size: 11px; }
+aside a { display: block; padding: 7px 12px; border-radius: 8px; color: var(--ink); text-decoration: none; margin: 1px 0; }
+aside a:hover { background: var(--sel); }
+aside a.active { background: var(--sel); font-weight: 600; }
+aside .grow { flex: 1; }
+aside .foot { padding: 8px 12px; color: var(--muted); font-size: 12px; }
+main { flex: 1; min-width: 0; padding: 26px 32px 120px; max-width: 1100px; }
+h1 { font-size: 24px; margin: 0 0 2px; } h2 { font-size: 15px; margin: 0 0 4px; } h3 { font-size: 14px; margin: 16px 0 6px; }
+.sub { color: var(--muted); margin: 0 0 18px; }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile b { display: block; } .tile .n { font-variant-numeric: tabular-nums; font-size: 13px; margin: 2px 0; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.row > label.k { min-width: 140px; color: var(--muted); }
+.row .grow { flex: 1; min-width: 200px; }
+input[type=text], input[type=number], select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+input[type=checkbox], input[type=radio] { accent-color: var(--accent); }
+label.opt { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; cursor: pointer; }
+label.opt input { margin-top: 3px; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.small { padding: 3px 10px; font-size: 12px; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .45; cursor: default; }
+.note { padding: 10px 12px; border-radius: 8px; margin: 8px 0; font-size: 13px; }
+.note.info { background: var(--accent-soft); } .note.warn { background: var(--warn-soft); color: var(--warn); }
+.note.ok { background: var(--ok-soft); color: var(--ok); } .note.bad { background: var(--bad-soft); color: var(--bad); }
+code, .mono { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--accent-soft); } tr.on td { background: var(--sel); }
+.scroll { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); margin: 1px 2px 1px 0; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.tree { border: 1px solid var(--line); border-radius: 8px; max-height: 420px; overflow: auto; }
+.tree details { border-bottom: 1px solid var(--line); } .tree details:last-child { border-bottom: 0; }
+.tree summary { list-style: none; display: flex; gap: 8px; align-items: center; padding: 8px 10px; cursor: pointer; font-weight: 600; }
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary .chev { width: 12px; color: var(--muted); transition: transform .15s; }
+.tree details[open] .chev { transform: rotate(90deg); }
+.tree .meta { margin-left: auto; color: var(--muted); font-weight: 400; font-size: 12px; font-variant-numeric: tabular-nums; }
+.tree .item { display: flex; gap: 8px; align-items: flex-start; padding: 5px 10px 5px 38px; cursor: pointer; }
+.tree .item:hover { background: var(--accent-soft); }
+.tree .item small { display: block; color: var(--muted); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pane { border: 1px solid var(--line); border-radius: 8px; height: 380px; overflow: auto; background: var(--panel); }
+pre.preview { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.files .f { padding: 3px 10px 3px 52px; cursor: pointer; font-family: var(--mono); font-size: 12px; display: flex; gap: 8px; }
+.files .f:hover, .files .f.on { background: var(--sel); }
+.files .f span:last-child { margin-left: auto; color: var(--muted); }
+.files .h { padding: 5px 10px; font-weight: 600; } .files .i { padding: 4px 10px 4px 28px; display: flex; gap: 8px; align-items: center; }
+.steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 18px; }
+.steps span { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.steps span.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.steps span.done { color: var(--ok); border-color: var(--ok); }
+.choice { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 8px 0; cursor: pointer; display: flex; gap: 10px; }
+.choice:hover { border-color: var(--accent); }
+.choice input { margin-top: 4px; }
+.wiznav { display: flex; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.wiznav .grow { flex: 1; }
+#jobbar { position: fixed; left: 220px; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 10px 24px; display: none; align-items: center; gap: 14px; z-index: 5; }
+#jobbar.on { display: flex; }
+#jobbar .bar { flex: 1; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+#jobbar .bar div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+#jobbar .txt { min-width: 260px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+#toasts { position: fixed; right: 18px; top: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+.toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.12); max-width: 380px; font-size: 13px; }
+.toast.ok { border-left-color: var(--ok); } .toast.bad { border-left-color: var(--bad); }
+.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 10; padding: 16px; }
+.modal { background: var(--panel); border-radius: 14px; border: 1px solid var(--line); width: min(900px, 100%); max-height: 88vh; display: flex; flex-direction: column; }
+.modal header { padding: 16px 20px 4px; } .modal .body { padding: 6px 20px; overflow: auto; } .modal footer { padding: 12px 20px 16px; display: flex; gap: 8px; justify-content: flex-end; }
+.empty { color: var(--muted); padding: 14px; text-align: center; }
+@media (max-width: 760px) {
+  body { flex-direction: column; } aside { width: auto; height: auto; position: static; flex-direction: row; flex-wrap: wrap; padding: 8px; }
+  aside .brand, aside .grow, aside .foot { display: none; } main { padding: 18px 16px 120px; } #jobbar { left: 0; }
+  .split { grid-template-columns: 1fr; } .row > label.k { min-width: 100%; }
+}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M4 10h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><rect x="9.5" y="12" width="5" height="1.6" rx=".8" fill="#c2410c"/></svg></div>
+    <div><b>Claude Backup</b><small>v__VERSION__</small></div></div>
+  <nav id="nav"></nav>
+  <div class="grow"></div>
+  <div class="foot" id="foot"></div>
+</aside>
+<main id="main"></main>
+<div id="jobbar"><div class="txt" id="jobtxt"></div><div class="bar"><div id="jobfill"></div></div><button class="btn small" id="jobcancel">Cancel</button></div>
+<div id="toasts"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const CATS = ["skills", "plugins", "prompts", "artifacts", "settings", "history"];
+const CAT = {skills: "Skills", plugins: "Plugins", prompts: "Prompts", artifacts: "Artifacts", settings: "Settings", history: "History"};
+const PAGES = [["dashboard", "Dashboard"], ["backup", "Back up"], ["restore", "Restore"], ["migrate", "Move accounts"],
+  ["library", "Library"], ["cloud", "Cloud & drives"], ["artifacts", "Artifacts"], ["schedule", "Automatic"], ["undo", "Undo & activity"],
+  ["settings", "Settings"], ["help", "Help"]];
+let S = null;            // latest scan
+const state = {restore: {path: null}, library: {path: null}, artifacts: {zip: "", rows: [], sel: new Set()}, wiz: null};
+
+// ---------- utilities ----------
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const size = n => n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
+const short = u => u ? u.slice(0, 8) + "…" : "—";
+const when = iso => { if (!iso) return ""; const d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
+const acctLabel = a => [a.email, `account ${short(a.account)} · org ${short(a.org)}`, a.user_skills ? a.user_skills + " skills" : "", a.current ? "signed in" : ""].filter(Boolean).join("  ·  ");
+
+async function api(path, body = {}) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify(body)});
+  let j; try { j = await r.json(); } catch { throw new Error("The app stopped responding. Reopen Claude Backup."); }
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, kind = "") {
+  const t = document.createElement("div"); t.className = "toast " + kind; t.innerHTML = msg;
+  $("#toasts").append(t); setTimeout(() => t.remove(), kind === "bad" ? 9000 : 5000);
+}
+const fail = e => toast(esc(e.message || e), "bad");
+async function runJob(path, body) {
+  const {job} = await api(path, body);
+  $("#jobbar").classList.add("on"); $("#jobfill").style.width = "0";
+  $("#jobcancel").onclick = () => api("/api/job/cancel", {id: job});
+  try {
+    while (true) {
+      await new Promise(r => setTimeout(r, 220));
+      const j = await api("/api/job", {id: job});
+      $("#jobtxt").textContent = `${j.title}… ${j.total ? j.done + "/" + j.total + "  " + j.label : ""}`;
+      $("#jobfill").style.width = j.total ? (100 * j.done / j.total) + "%" : "15%";
+      if (j.state === "done") return j.result;
+      if (j.state === "cancelled") throw new Error("Cancelled");
+      if (j.state === "error") throw new Error(j.error);
+    }
+  } finally { $("#jobbar").classList.remove("on"); }
+}
+function modal(title, bodyHtml, buttons = [["Close", null, "primary"]]) {
+  return new Promise(resolve => {
+    const back = document.createElement("div"); back.className = "modal-back";
+    back.innerHTML = `<div class="modal"><header><h2>${title}</h2></header><div class="body">${bodyHtml}</div><footer></footer></div>`;
+    for (const [label, value, cls] of buttons) {
+      const b = document.createElement("button"); b.className = "btn " + (cls || ""); b.textContent = label;
+      b.onclick = () => { back.remove(); resolve(value); }; $("footer", back).append(b);
+    }
+    back.onclick = e => { if (e.target === back) { back.remove(); resolve(null); } };
+    document.body.append(back);
+  });
+}
+const confirmBox = (title, text, ok = "Continue") => modal(title, `<p>${text}</p>`, [["Cancel", false], [ok, true, "primary"]]);
+async function pickInto(kind, input) { const r = await api("/api/pick", {kind}); if (r.path) { input.value = r.path; input.dispatchEvent(new Event("change")); } return r.path; }
+const reveal = p => api("/api/reveal", {path: p}).catch(fail);
+const openUrl = u => window.open(u, "_blank", "noopener");
+
+// ---------- checkbox tree ----------
+function renderTree(el, groups, onChange) {
+  el.classList.add("tree");
+  el.innerHTML = groups.length ? groups.map(g => `<details data-g="${esc(g.id)}"${g.open ? " open" : ""}><summary><span class="chev">▸</span><input type="checkbox" data-group>
+      <span>${esc(g.label)}</span><span class="meta">${esc(g.meta || "")}</span></summary>
+      ${g.items.map(i => `<label class="item"><input type="checkbox" value="${esc(i.id)}" ${i.checked !== false ? "checked" : ""}>
+        <span>${esc(i.label)}${i.sub ? `<small>${esc(i.sub)}</small>` : ""}</span><span class="meta">${esc(i.meta || "")}</span></label>`).join("")}</details>`).join("")
+    : `<div class="empty">Nothing here.</div>`;
+  const sync = (notify = true) => {
+    $$("details", el).forEach(d => {
+      const items = $$(".item input", d), n = items.filter(i => i.checked).length, g = $("[data-group]", d);
+      g.checked = n === items.length && n > 0; g.indeterminate = n > 0 && n < items.length;
+    });
+    if (notify && onChange) onChange();
+  };
+  $$("[data-group]", el).forEach(g => {
+    g.onclick = e => e.stopPropagation();
+    g.onchange = () => { $$(".item input", g.closest("details")).forEach(i => i.checked = g.checked); sync(); };
+  });
+  $$(".item input", el).forEach(i => i.onchange = () => sync());
+  sync(false);
+  if (onChange) setTimeout(onChange);   // after the caller has the returned handle
+  return {
+    checked: () => $$(".item input", el).filter(i => i.checked).map(i => i.value),
+    all: v => { $$(".item input", el).forEach(i => i.checked = v); sync(); },
+  };
+}
+const catGroups = (items, open = false) => CATS.map(c => {
+  const its = items.filter(i => i.category === c);
+  if (!its.length) return null;
+  const files = its.reduce((a, i) => a + (i.files || 0), 0), bytes = its.reduce((a, i) => a + (i.bytes || 0), 0);
+  return {id: c, label: CAT[c], open, meta: `${its.length} items · ${size(bytes)}`,
+    items: its.map(i => ({id: i.id, label: i.title, sub: (i.description || "").slice(0, 110), meta: `${i.files} files · ${size(i.bytes)}`}))};
+}).filter(Boolean);
+
+// ---------- routing ----------
+$("#nav").innerHTML = PAGES.map(([k, l]) => `<a href="#${k}" data-k="${k}">${l}</a>`).join("");
+window.onhashchange = () => show(location.hash.slice(1));
+async function show(key) {
+  if (!PAGES.some(p => p[0] === key)) key = "dashboard";
+  $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.k === key));
+  const m = $("#main"); m.innerHTML = "";
+  try { await PAGE[key](m); } catch (e) { m.innerHTML += `<div class="note bad">${esc(e.message)}</div>`; }
+}
+function head(m, title, sub) { m.insertAdjacentHTML("beforeend", `<h1>${title}</h1>${sub ? `<p class="sub">${sub}</p>` : ""}`); }
+async function rescan(accounts) {
+  S = await api("/api/scan", accounts ? {accounts} : {});
+  $("#foot").innerHTML = `${esc(S.current_account.email || "")}<br>Python ${esc(S.python)}`;
+  return S;
+}
+
+// ---------- pages ----------
+const PAGE = {};
+
+PAGE.dashboard = async m => {
+  head(m, "Dashboard", "Your Claude data on this computer, at a glance.");
+  m.insertAdjacentHTML("beforeend", `<div class="note info">Scanning your Claude data…</div>`);
+  await rescan();
+  const ca = S.current_account, lb = S.last_backup;
+  m.innerHTML = "";
+  head(m, "Dashboard", "Your Claude data on this computer, at a glance.");
+  m.insertAdjacentHTML("beforeend", `
+    <div class="card"><h2>${ca.account ? "Signed in as " + esc(ca.email || "unknown") : "No signed-in Claude account found"}</h2>
+      ${ca.account ? `<div class="muted small mono">account ${esc(ca.account)} · org ${esc(ca.org)}</div>` : ""}
+      ${S.desktop_running ? `<div class="note warn">Claude Desktop is running. Backing up is fine. Quit it before you restore so it doesn't overwrite restored files.</div>` : ""}
+      <div class="row" style="margin-top:12px"><button class="btn primary" id="dqb">Back up everything now</button>
+        <a class="btn" href="#restore">Restore…</a><a class="btn" href="#migrate">Move to another account…</a></div></div>
+    <div class="grid">${CATS.map(c => { const s = S.categories[c]; return `<div class="tile"><b>${CAT[c]}</b><div class="n">${s.items} items · ${s.files} files · ${size(s.bytes)}</div><div class="muted small">${esc(s.description)}</div></div>`; }).join("")}</div>
+    <div class="card" style="margin-top:14px"><div class="row"><span class="muted" style="min-width:150px">Last backup</span><span>${lb ? `${when(lb.created_at)} · ${size(lb.size)} · ${lb.items} items` : "None yet"}</span></div>
+      <div class="row"><span class="muted" style="min-width:150px">Automatic backups</span><span>${esc(S.schedule)}</span> <a class="btn small" href="#schedule">Change</a></div>
+      <div class="row"><span class="muted" style="min-width:150px">Off-computer copies</span><span>${(S.settings.destinations || []).length ? (S.settings.destinations || []).map(d => esc(d.name) + (d.auto ? " (every backup)" : "")).join(", ") : "None yet: your backups only live on this computer."}</span> <a class="btn small" href="#cloud">${(S.settings.destinations || []).length ? "Manage" : "Add a drive or cloud"}</a></div></div>
+    <div class="card"><h2>Claude accounts on this computer</h2><p class="sub">Claude Desktop keeps a separate folder for every account and organization that has signed in here.</p>
+      <table><thead><tr><th>Account</th><th>Account ID</th><th>Organization ID</th><th class="num">Your skills</th></tr></thead><tbody>
+      ${S.accounts.map(a => `<tr><td>${esc(a.email || "")} ${a.current ? '<span class="pill ok">signed in</span>' : ""}</td><td class="mono">${esc(a.account)}</td><td class="mono">${esc(a.org)}</td><td class="num">${a.user_skills}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">None found</td></tr>`}</tbody></table></div>
+    <div class="note info">Artifacts and chats are stored on claude.ai, not on this computer. To back them up, request a data export in Claude (Settings → Privacy → Export data), then add the zip under <a href="#artifacts">Artifacts</a> or <a href="#backup">Back up</a>. <button class="btn small" id="dexp">Request export</button></div>`);
+  $("#dqb").onclick = () => doBackup({});
+  $("#dexp").onclick = () => openUrl(S.export_url);
+};
+
+async function doBackup(body) {
+  try {
+    const r = await runJob("/api/backup", body);
+    const copies = (r.copies || []).map(c => `<div class="note ${c.ok ? "ok" : "bad"}">${c.ok ? "Copied to" : "Couldn't copy to"} <b>${esc(c.name)}</b>: ${esc(c.message)}</div>`).join("");
+    const go = await modal("Backup created", `<div class="note ok">Saved ${r.items} items (${size(r.size)}).</div><code>${esc(r.path)}</code>${copies}
+      ${!(r.copies || []).length ? `<p class="muted small">Tip: keep a copy off this computer. Add an external drive or a cloud under <a href="#cloud">Cloud &amp; drives</a>.</p>` : ""}`,
+      [["Show file", "reveal"], ["Open in Library", "lib", "primary"]]);
+    if (go === "reveal") reveal(r.path);
+    if (go === "lib") { state.library.path = r.path; location.hash = "library"; }
+    return r;
+  } catch (e) { fail(e); }
+}
+
+PAGE.backup = async m => {
+  head(m, "Back up", "Tick whole categories, or open one to pick single items. Selecting everything is a full backup.");
+  if (!S) await rescan();
+  m.insertAdjacentHTML("beforeend", `
+    <div class="row"><button class="btn small" id="ball">Select all</button><button class="btn small" id="bnone">Clear</button><span class="grow"></span><span class="muted small" id="bsum"></span></div>
+    <div id="btree"></div>
+    <div class="card" style="margin-top:14px">
+      <div class="row"><label class="k">Accounts</label>
+        <label class="opt"><input type="radio" name="bacc" value="current"> Signed-in account</label>
+        <label class="opt"><input type="radio" name="bacc" value="all"> Every account on this computer</label></div>
+      <div class="row"><label class="k">claude.ai export</label><input type="text" class="grow" id="bexp" placeholder="Optional: your claude.ai export .zip (artifacts, projects, chats)"><button class="btn" id="bexpp">Choose…</button></div>
+      <div class="row"><label class="k">Save to</label><input type="text" class="grow" id="bout"><button class="btn" id="boutp">Choose…</button></div>
+      <div class="row"><label class="k"></label><label class="opt"><input type="checkbox" id="bred"> Remove API keys and tokens from MCP server settings</label></div>
+      <div class="note info">Never included: sign-in tokens, cookies, caches and the VM image. Backups aren't encrypted, so keep them somewhere safe if they hold MCP API keys.</div>
+      <div class="row"><button class="btn primary" id="bgo">Create backup</button></div></div>`);
+  $("#bout").value = S.default_out; $("#bred").checked = !!S.settings.redact;
+  $(`input[name=bacc][value=${S.settings.accounts === "all" ? "all" : "current"}]`).checked = true;
+  if (state.backupExport) { $("#bexp").value = state.backupExport; state.backupExport = null; }
+  let tree;
+  const draw = () => {
+    tree = renderTree($("#btree"), catGroups(S.items), () => {
+      const sel = new Set(tree.checked()), its = S.items.filter(i => sel.has(i.id));
+      $("#bsum").textContent = `${its.length} items · ${its.reduce((a, i) => a + i.files, 0)} files · ${size(its.reduce((a, i) => a + i.bytes, 0))} selected`;
+    });
+  };
+  draw();
+  $("#ball").onclick = () => tree.all(true); $("#bnone").onclick = () => tree.all(false);
+  $("#bexpp").onclick = () => pickInto("export", $("#bexp")); $("#boutp").onclick = () => pickInto("folder", $("#bout"));
+  $$("input[name=bacc]").forEach(r => r.onchange = async () => { await api("/api/settings", {accounts: r.value}); await rescan(r.value); draw(); });
+  $("#bgo").onclick = async () => {
+    let items = tree.checked(); const exp = $("#bexp").value.trim();
+    let cats = CATS.filter(c => S.items.some(i => i.category === c && items.includes(i.id)));
+    if (exp) { cats = [...new Set([...cats, "artifacts", "prompts", "history"])]; items = [...items, "export:artifacts", "export:prompts", "export:history"]; }
+    if (!items.length) return toast("Choose at least one item to back up.", "bad");
+    const full = S.items.every(i => items.includes(i.id));
+    await api("/api/settings", {redact: $("#bred").checked});
+    doBackup({categories: cats, items: full ? null : items, export: exp, out: $("#bout").value.trim(), redact: $("#bred").checked,
+      accounts: $("input[name=bacc]:checked").value});
+  };
+};
+
+function skillChecks(el, defaults) {
+  el.innerHTML = Object.entries(S.skill_targets).map(([k, d]) =>
+    `<label class="opt"><input type="checkbox" value="${k}" ${defaults.includes(k) ? "checked" : ""}> ${esc(d)}</label>`).join("");
+  return () => $$("input:checked", el).map(i => i.value);
+}
+function planHtml(res) {
+  const counts = {}; res.actions.forEach(a => counts[a.action] = (counts[a.action] || 0) + 1);
+  return `<p class="muted">Into account ${short(res.target.account)} · org ${short(res.target.org)}</p>
+    <p>${Object.entries(counts).map(([k, n]) => `<span class="pill">${n} × ${esc(k)}</span>`).join(" ") || "Nothing to do."}</p>
+    ${res.warnings.map(w => `<div class="note warn">${esc(w)}</div>`).join("")}
+    <div class="scroll"><table><thead><tr><th>Action</th><th>File</th><th>Note</th></tr></thead><tbody>
+    ${res.actions.slice(0, 1500).map(a => `<tr><td>${esc(a.action)}</td><td class="mono">${esc(a.path)}</td><td class="small">${esc(a.note)}</td></tr>`).join("")}</tbody></table></div>
+    ${res.actions.length > 1500 ? `<p class="muted small">First 1,500 of ${res.actions.length} shown.</p>` : ""}`;
+}
+async function finishDialog(res, title = "Restore finished") {
+  const files = res.out_dir ? (await api("/api/uploads", {out_dir: res.out_dir})).files : [];
+  const changed = res.actions.filter(a => ["create", "overwrite", "merge into", "register in"].includes(a.action)).length;
+  const html = `<div class="note ok">Restored into account ${short(res.target.account)} · org ${short(res.target.org)}. ${changed} files written or merged.</div>
+    ${res.warnings.map(w => `<div class="note warn">${esc(w)}</div>`).join("")}
+    ${files.length ? `<h3>Finish in Claude: upload your skills and plugins</h3>
+      <p class="muted">Skills and plugins are stored in your Claude account in the cloud. Upload each file in the account you restored into, and tick it off as you go.<br>
+      Skills: Settings → Capabilities → Skills → Upload. Plugins: Customize → Plugins.</p>
+      <div class="row"><button class="btn primary" id="fopen">1. Open Claude skills settings</button><button class="btn" id="ffold">2. Show the upload files</button></div>
+      <div class="scroll"><table><tbody>${files.map(f => `<tr><td style="width:30px"><input type="checkbox" data-f="${esc(f.path)}" ${f.done ? "checked" : ""}></td><td>${esc(f.name)}</td><td><span class="pill">${f.kind}</span></td><td class="num"><button class="btn small" data-rv="${esc(f.path)}">Show</button></td></tr>`).join("")}</tbody></table></div>
+      <p class="muted small" id="fcount"></p>` : ""}`;
+  const p = modal(title, html, [...(res.snapshot ? [["Undo this restore", "undo", "danger"]] : []), ...(res.out_dir ? [["Open exported files", "out"]] : []), ["Done", null, "primary"]]);
+  const count = () => { const c = $$("[data-f]"); if ($("#fcount")) $("#fcount").textContent = `${c.filter(x => x.checked).length} of ${c.length} uploaded`; };
+  if ($("#fopen")) { $("#fopen").onclick = () => openUrl(S.skills_url); $("#ffold").onclick = () => reveal(res.out_dir); }
+  $$("[data-f]").forEach(c => c.onchange = () => { api("/api/uploads/mark", {out_dir: res.out_dir, file: c.dataset.f, done: c.checked}); count(); });
+  $$("[data-rv]").forEach(b => b.onclick = () => reveal(b.dataset.rv));
+  count();
+  const v = await p;
+  if (v === "out") reveal(res.out_dir);
+  if (v === "undo" && await confirmBox("Undo restore", "Put back every file this restore changed, and remove the files it added?", "Undo")) {
+    const r = await api("/api/undo", {snapshot: res.snapshot}); toast(`Undone: put back ${r.restored} files, removed ${r.removed}.`, "ok");
+  }
+}
+
+PAGE.restore = async m => {
+  head(m, "Restore", "Put a backup back, into this account or a different one. To restore into another account, sign in to it in Claude Desktop (and Claude Code) first.");
+  if (!S) await rescan();
+  const lib = await api("/api/backups");
+  m.insertAdjacentHTML("beforeend", `
+    <div class="card"><h2>1. Choose a backup</h2>
+      <div class="row"><select class="grow" id="rlist"><option value="">Choose a backup…</option>${lib.backups.map(b => `<option value="${esc(b.path)}">${esc(when(b.created_at))} · ${esc(b.categories.join(", "))} · ${b.items} items · ${size(b.size)}${b.email ? " · " + esc(b.email) : ""}</option>`).join("")}</select>
+        <button class="btn" id="ropen">Open file…</button><a class="btn" href="#cloud">From a drive or cloud…</a></div><div id="rinfo"></div></div>
+    <div id="rrest" style="display:none">
+      <div class="card"><h2>2. Choose what to restore</h2><div class="row"><button class="btn small" id="rall">Select all</button><button class="btn small" id="rnone">Clear</button></div><div id="rtree"></div></div>
+      <div class="card"><h2>3. Restore into</h2>
+        <div class="row"><label class="k">Target account</label><select class="grow" id="rtgt"></select><button class="btn" id="rref">Refresh</button></div>
+        <div class="row" id="rcust" style="display:none"><label class="k">Account / org ID</label><input type="text" class="grow" id="rca" placeholder="account UUID"><input type="text" class="grow" id="rco" placeholder="organization UUID"></div>
+        <h3>Where restored skills go</h3><div id="rsk"></div>
+        <h3>If a file already exists</h3>
+        <label class="opt"><input type="radio" name="rcf" value="overwrite" checked> Replace it (an undo snapshot is saved first)</label>
+        <label class="opt"><input type="radio" name="rcf" value="skip"> Keep the existing file</label>
+        <div class="row" style="margin-top:12px"><button class="btn" id="rprev">Preview changes</button><button class="btn primary" id="rgo">Restore</button></div></div></div>`);
+  const skills = skillChecks($("#rsk"), S.settings.skill_targets || ["claude-code", "upload"]);
+  const fillTargets = () => {
+    $("#rtgt").innerHTML = S.accounts.map((a, i) => `<option value="${i}" ${a.current ? "selected" : ""}>${esc(acctLabel(a))}</option>`).join("") + `<option value="custom">Another account (enter its IDs)…</option>`;
+    if (!S.accounts.length) $("#rtgt").value = "custom";
+    $("#rcust").style.display = $("#rtgt").value === "custom" ? "flex" : "none";
+  };
+  fillTargets();
+  $("#rtgt").onchange = () => $("#rcust").style.display = $("#rtgt").value === "custom" ? "flex" : "none";
+  $("#rref").onclick = async () => { await rescan(); fillTargets(); toast("Accounts refreshed"); };
+  let tree;
+  const load = async path => {
+    try {
+      const r = await api("/api/inspect", {path});
+      state.restore.path = path;
+      if (![...$("#rlist").options].some(o => o.value === path)) $("#rlist").insertAdjacentHTML("beforeend", `<option value="${esc(path)}">${esc(path.split("/").pop())}</option>`);
+      $("#rlist").value = path;
+      const sa = r.source_account || {}, other = S.current_account.account && sa.account && sa.account !== S.current_account.account;
+      $("#rinfo").innerHTML = `<div class="note info">Made ${esc(when(r.created_at))} on <b>${esc(r.host)}</b> (${esc(r.platform)}) from ${esc(sa.email || short(sa.account))}.
+        ${r.redacted ? "<br>API keys were removed from this backup; re-enter them after restoring." : ""}
+        ${other ? "<br><b>This backup is from a different account.</b> Its account IDs will be rewritten to the target account's." : ""}</div>`;
+      tree = renderTree($("#rtree"), catGroups(r.items));
+      $("#rrest").style.display = "block";
+    } catch (e) { fail(e); }
+  };
+  $("#rlist").onchange = () => $("#rlist").value && load($("#rlist").value);
+  $("#ropen").onclick = async () => { const r = await api("/api/pick", {kind: "backup"}); if (r.path) load(r.path); };
+  $("#rall").onclick = () => tree.all(true); $("#rnone").onclick = () => tree.all(false);
+  const target = () => {
+    const v = $("#rtgt").value;
+    if (v === "custom") { const a = $("#rca").value.trim(), o = $("#rco").value.trim(); if (!a || !o) throw new Error("Enter both the account ID and the organization ID."); return [a, o]; }
+    const a = S.accounts[+v]; return [a.account, a.org];
+  };
+  const go = async dry => {
+    try {
+      const items = tree.checked(); if (!items.length) return toast("Choose at least one item.", "bad");
+      const body = {path: state.restore.path, items, target: target(), skills: skills(), conflict: $("input[name=rcf]:checked").value, dry_run: dry};
+      await api("/api/settings", {skill_targets: body.skills});
+      if (!dry) {
+        if (S.desktop_running && !await confirmBox("Claude Desktop is running", "Claude Desktop is open and may overwrite restored files. Quit it first for best results.", "Restore anyway")) return;
+        if (!await confirmBox("Restore", `Restore ${items.length} items into account ${short(body.target[0])}? Files that change are saved to an undo snapshot first.`, "Restore")) return;
+      }
+      const res = await runJob("/api/restore", body);
+      if (dry) modal("Preview: restore", planHtml(res));
+      else { await rescan(); finishDialog(res); }
+    } catch (e) { fail(e); }
+  };
+  $("#rprev").onclick = () => go(true); $("#rgo").onclick = () => go(false);
+  const start = state.restore.path || (lib.backups[0] && lib.backups[0].path);
+  if (start) load(start);
+};
+
+// ---------- migration wizard ----------
+function newWiz() {
+  return {mode: "new", step: 0, cats: Object.fromEntries(CATS.map(c => [c, true])), skills: {"claude-code": true, upload: true, desktop: true},
+    export: "", backup: null, source: null, result: null, from: null, to: null};
+}
+PAGE.migrate = async m => {
+  head(m, "Move to another account", "A step-by-step guide for moving your skills, prompts, settings and history to a different Claude account.");
+  if (!S) await rescan();
+  if (!state.wiz) state.wiz = newWiz();
+  const w = state.wiz;
+  const flowNew = [["Choose", stChoose], ["Cloud data", stExport], ["What to move", stWhat], ["Back up", stBackup], ["Sign in", stSignin], ["Restore", stRestore], ["Upload", stFinish]];
+  const flowLocal = [["Choose", stChoose], ["Accounts", stAccounts], ["What to move", stWhat], ["Cloud data", stExport], ["Migrate", stLocal], ["Upload", stFinish]];
+  const flow = () => w.mode === "new" ? flowNew : flowLocal;
+  m.insertAdjacentHTML("beforeend", `<div class="steps" id="wsteps"></div><div class="card" id="wbody"></div>`);
+  const render = () => {
+    $("#wsteps").innerHTML = flow().map(([n], i) => `<span class="${i === w.step ? "on" : i < w.step ? "done" : ""}">${i + 1}. ${n}</span>`).join("");
+    const b = $("#wbody"); b.innerHTML = "";
+    flow()[w.step][1].render(b);
+    b.insertAdjacentHTML("beforeend", `<div class="wiznav"><button class="btn" id="wback" ${w.step ? "" : "disabled"}>← Back</button><span class="grow"></span>
+      <button class="btn" id="wreset">Start over</button><button class="btn primary" id="wnext">${w.step === flow().length - 1 ? "Finish" : "Next →"}</button></div>`);
+    $("#wback").onclick = () => { w.step--; render(); };
+    $("#wreset").onclick = () => { state.wiz = newWiz(); show("migrate"); };
+    $("#wnext").onclick = async () => {
+      const st = flow()[w.step][1];
+      if (st.check && !(await st.check())) return;
+      if (w.step === flow().length - 1) { state.wiz = null; location.hash = "dashboard"; return; }
+      w.step++; render();
+    };
+  };
+  const cats = () => CATS.filter(c => w.cats[c]);
+  const skills = () => Object.keys(w.skills).filter(k => w.skills[k]);
+
+  function stChoose() {}
+  stChoose.render = b => {
+    b.innerHTML = `<h2>Where is the account you're moving to?</h2>
+      <label class="choice"><input type="radio" name="wm" value="new" ${w.mode === "new" ? "checked" : ""}><span><b>A new account, or another computer</b><br><span class="muted">Make a backup here, sign in to the new account (on this or another computer), then restore. Use this when the new account hasn't signed in to Claude Desktop on this computer yet.</span></span></label>
+      <label class="choice"><input type="radio" name="wm" value="local" ${w.mode === "local" ? "checked" : ""}><span><b>An account that has already signed in on this computer</b><br><span class="muted">Copy straight from one account's folders to the other's, in one step.</span></span></label>`;
+    $$("input[name=wm]", b).forEach(r => r.onchange = () => { w.mode = r.value; render(); });
+  };
+  function stExport() {}
+  stExport.render = b => {
+    b.innerHTML = `<h2>Include artifacts and chats? (optional)</h2>
+      <p>Artifacts, conversations and project instructions are stored on claude.ai. To bring them along, export them from the account you're moving from:</p>
+      <ol><li>Open Claude: Settings → Privacy → Export data.</li><li>Wait for the email, then download the .zip.</li><li>Choose the .zip below.</li></ol>
+      <div class="row"><button class="btn" id="wexo">Open Claude export settings</button></div>
+      <div class="row"><input type="text" class="grow" id="wex" placeholder="claude.ai export .zip"><button class="btn" id="wexp">Choose…</button></div>
+      <p class="muted small">Skip this step if you only need local data.</p>`;
+    $("#wex").value = w.export || "";
+    $("#wex").onchange = () => w.export = $("#wex").value.trim();
+    $("#wexo").onclick = () => openUrl(S.export_url);
+    $("#wexp").onclick = () => pickInto("export", $("#wex"));
+  };
+  stExport.check = () => { w.export = $("#wex").value.trim(); if (w.export && !/\.zip$/i.test(w.export)) { toast("That isn't a .zip file.", "bad"); return false; } return true; };
+  function stWhat() {}
+  stWhat.render = b => {
+    b.innerHTML = `<h2>What do you want to move?</h2>${CATS.map(c => `<label class="opt"><input type="checkbox" data-c="${c}" ${w.cats[c] ? "checked" : ""}> <span><b>${CAT[c]}</b> <span class="muted">— ${esc(S.categories_info[c])} (${S.categories[c].items} items)</span></span></label>`).join("")}
+      <h3>Where should skills go in the new account?</h3>${Object.entries(S.skill_targets).map(([k, d]) => `<label class="opt"><input type="checkbox" data-s="${k}" ${w.skills[k] ? "checked" : ""}> ${esc(d)}</label>`).join("")}`;
+    $$("[data-c]", b).forEach(i => i.onchange = () => w.cats[i.dataset.c] = i.checked);
+    $$("[data-s]", b).forEach(i => i.onchange = () => w.skills[i.dataset.s] = i.checked);
+  };
+  stWhat.check = () => cats().length ? true : (toast("Choose at least one thing to move.", "bad"), false);
+  function stBackup() {}
+  stBackup.render = b => {
+    const ca = S.current_account;
+    b.innerHTML = `<h2>Back up the account you're moving from</h2><p>Signed in now: <b>${esc(ca.email || "unknown")}</b> (account ${short(ca.account)}). This is the account that will be backed up.</p>
+      ${w.backup ? `<div class="note ok">Backup created:<br><code>${esc(w.backup)}</code></div><div class="row"><button class="btn" id="wrev">Show file</button></div>
+        <p class="muted">Moving to another computer? Copy this file there, open Claude Backup, and go to Restore. You can stop here.</p>`
+        : `<div class="row"><button class="btn primary" id="wbk">Create migration backup</button></div>`}`;
+    if ($("#wrev")) $("#wrev").onclick = () => reveal(w.backup);
+    if ($("#wbk")) $("#wbk").onclick = async () => {
+      try {
+        w.source = {...S.current_account};
+        const r = await runJob("/api/backup", {categories: cats(), accounts: "current", export: w.export, label: "migration"});
+        w.backup = r.path; render();
+      } catch (e) { fail(e); }
+    };
+  };
+  stBackup.check = () => w.backup ? true : (toast("Create the migration backup first.", "bad"), false);
+  function stSignin() {}
+  stSignin.render = b => {
+    b.innerHTML = `<h2>Sign in to the new account</h2><ol>
+      <li>In Claude Desktop, open the account menu and sign out, then sign in to the new account.</li>
+      <li>If you use Claude Code, run <code>claude</code> in a terminal and use <code>/login</code> with the new account.</li>
+      <li>Quit Claude Desktop (Claude → Quit), so it can't overwrite restored files.</li>
+      <li>Click “Check again”.</li></ol><div id="wsig"></div><div class="row"><button class="btn" id="wchk">Check again</button></div>`;
+    const status = () => {
+      const ca = S.current_account, src = w.source && w.source.account;
+      $("#wsig").innerHTML = !ca.account ? `<div class="note warn">No signed-in account found yet.</div>`
+        : src && ca.account === src ? `<div class="note warn">Still signed in to the original account (${esc(ca.email || short(ca.account))}). Sign in to the new one, then check again.</div>`
+        : `<div class="note ok">Signed in to the new account: ${esc(ca.email || "unknown")} (account ${short(ca.account)} · org ${short(ca.org)}).</div>`;
+      if (S.desktop_running) $("#wsig").insertAdjacentHTML("beforeend", `<div class="note warn">Claude Desktop is still running. Quit it before restoring.</div>`);
+    };
+    status();
+    $("#wchk").onclick = async () => { await rescan(); status(); };
+  };
+  stSignin.check = async () => {
+    await rescan(); const ca = S.current_account;
+    if (!ca.account || !ca.org) { toast("Sign in to the new account, then click Check again.", "bad"); return false; }
+    if (w.source && ca.account === w.source.account) return confirmBox("Same account", "You're still signed in to the account you backed up. Restore into it anyway?", "Restore anyway");
+    return true;
+  };
+  function stRestore() {}
+  stRestore.render = b => {
+    const ca = S.current_account;
+    b.innerHTML = `<h2>Restore into ${esc(ca.email || short(ca.account))}</h2><p class="muted">Backup: ${esc((w.backup || "").split("/").pop())}</p>
+      <div class="row"><button class="btn" id="wpv">Preview changes</button><button class="btn primary" id="wrs">Restore now</button></div>
+      ${w.result ? `<div class="note ok">Restore finished. Click Next to upload your skills and plugins.</div>` : ""}`;
+    const run = async dry => {
+      try {
+        const res = await runJob("/api/restore", {path: w.backup, target: [ca.account, ca.org], skills: skills(), dry_run: dry});
+        if (dry) return modal("Preview: migration", planHtml(res));
+        w.result = res; await rescan(); render();
+      } catch (e) { fail(e); }
+    };
+    $("#wpv").onclick = () => run(true); $("#wrs").onclick = () => run(false);
+  };
+  stRestore.check = () => w.result ? true : (toast("Click “Restore now” first.", "bad"), false);
+  function stAccounts() {}
+  stAccounts.render = b => {
+    const opts = S.accounts.map((a, i) => `<option value="${i}">${esc(acctLabel(a))}</option>`).join("");
+    b.innerHTML = `<h2>Copy from</h2><select id="wfrom" style="width:100%">${opts}</select><h2 style="margin-top:14px">Copy into</h2><select id="wto" style="width:100%">${opts}</select>
+      <p class="muted small" style="margin-top:12px">Don't see the account? It has to sign in to Claude Desktop on this computer at least once. Otherwise go back and choose the first option.</p>`;
+    if (w.from == null && S.accounts.length) {
+      w.from = S.accounts.reduce((best, a, i) => a.user_skills > S.accounts[best].user_skills ? i : best, 0);
+      w.to = S.accounts.findIndex((_, i) => i !== w.from); if (w.to < 0) w.to = w.from;
+    }
+    $("#wfrom").value = w.from; $("#wto").value = w.to;
+    $("#wfrom").onchange = () => w.from = +$("#wfrom").value; $("#wto").onchange = () => w.to = +$("#wto").value;
+  };
+  stAccounts.check = () => {
+    if (w.from == null || w.to == null) return toast("Choose both accounts.", "bad"), false;
+    if (w.from === w.to) return toast("Choose two different accounts.", "bad"), false;
+    return true;
+  };
+  function stLocal() {}
+  stLocal.render = b => {
+    const a = S.accounts[w.from], t = S.accounts[w.to];
+    b.innerHTML = `<h2>Ready to migrate</h2><p>From: <b>${esc(acctLabel(a))}</b><br>Into: <b>${esc(acctLabel(t))}</b></p><p class="muted">Moving: ${cats().map(c => CAT[c]).join(", ")}</p>
+      <div class="row"><button class="btn" id="wpv">Preview changes</button><button class="btn primary" id="wmg">Migrate now</button></div>
+      ${w.result ? `<div class="note ok">Migration finished. Source backup saved to:<br><code>${esc(w.result.backup)}</code></div>` : ""}`;
+    const run = async dry => {
+      try {
+        if (!dry && S.desktop_running && !await confirmBox("Claude Desktop is running", "Quit Claude Desktop first so it doesn't overwrite migrated files.", "Migrate anyway")) return;
+        const res = await runJob("/api/migrate", {from: [a.account, a.org], to: [t.account, t.org], categories: cats(), skills: skills(), export: w.export, dry_run: dry});
+        if (dry) return modal("Preview: migration", planHtml(res));
+        w.result = res; await rescan(); render();
+      } catch (e) { fail(e); }
+    };
+    $("#wpv").onclick = () => run(true); $("#wmg").onclick = () => run(false);
+  };
+  stLocal.check = () => w.result ? true : (toast("Click “Migrate now” first.", "bad"), false);
+  function stFinish() {}
+  stFinish.render = b => {
+    b.innerHTML = `<h2>Last step: upload skills and plugins to the new account</h2>
+      <p>Skills and plugins are stored in your Claude account in the cloud. The upload files are ready. Open the checklist to upload each one and tick it off.</p>
+      <div class="row"><button class="btn primary" id="wck">Open upload checklist</button></div>
+      <p class="muted">Then restart Claude Desktop. Your Claude Code skills, CLAUDE.md, commands, MCP servers and settings are already in place.</p>`;
+    $("#wck").onclick = () => w.result ? finishDialog(w.result, "Migration finished") : toast("Nothing has been restored yet.", "bad");
+  };
+  render();
+};
+
+PAGE.library = async m => {
+  head(m, "Library", "Every backup in your backup folder. Pick one to look inside, check it, pull files out, or restore it.");
+  m.insertAdjacentHTML("beforeend", `
+    <div class="row"><input type="text" class="grow" id="lout"><button class="btn" id="loutp">Choose…</button><button class="btn" id="lref">Refresh</button><button class="btn" id="limp">Add backup file…</button></div>
+    <div class="scroll" style="max-height:260px"><table><thead><tr><th>Created</th><th>Contents</th><th class="num">Items</th><th class="num">Size</th><th>From</th></tr></thead><tbody id="lrows"></tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="lrest" disabled>Restore…</button><button class="btn" id="lver" disabled>Verify</button><button class="btn" id="lext" disabled>Extract selected…</button><button class="btn" id="lcopy" disabled>Copy to…</button><button class="btn" id="lshow" disabled>Show file</button><button class="btn danger" id="ldel" disabled>Move to Trash</button></div>
+    <div class="split"><div class="pane files" id="lfiles"><div class="empty">Select a backup to see what's inside.</div></div><div class="pane"><pre class="preview" id="lprev"></pre></div></div>`);
+  const st = await api("/api/settings"); $("#lout").value = st.out;
+  const load = async () => {
+    const r = await api("/api/backups", {out: $("#lout").value});
+    $("#lrows").innerHTML = r.backups.map(b => `<tr class="click${b.path === state.library.path ? " on" : ""}" data-p="${esc(b.path)}"><td>${esc(when(b.created_at))}</td><td>${b.categories.map(c => `<span class="pill">${c}</span>`).join("")}</td><td class="num">${b.items}</td><td class="num">${size(b.size)}</td><td>${esc(b.email || b.host)}</td></tr>`).join("")
+      || `<tr><td colspan="5" class="empty">No backups in this folder yet.</td></tr>`;
+    $$("#lrows tr[data-p]").forEach(tr => tr.onclick = () => select(tr.dataset.p));
+    if (state.library.path && r.backups.some(b => b.path === state.library.path)) select(state.library.path);
+  };
+  const select = async p => {
+    state.library.path = p;
+    $$("#lrows tr").forEach(tr => tr.classList.toggle("on", tr.dataset.p === p));
+    $$("#lrest,#lver,#lext,#lcopy,#lshow,#ldel").forEach(b => b.disabled = false);
+    const c = await api("/api/contents", {path: p});
+    $("#lprev").textContent = `Created ${when(c.created_at)} on ${c.host} (${c.platform})\nAccount: ${(c.source_account || {}).email || ""}\nTool version ${c.tool_version}${c.redacted ? "\nAPI keys removed" : ""}\n\nSelect a file on the left to preview it.`;
+    $("#lfiles").innerHTML = CATS.map(cat => {
+      const its = c.items.filter(i => i.category === cat); if (!its.length) return "";
+      return `<div class="h"><label><input type="checkbox" data-cat="${cat}"> ${CAT[cat]}</label></div>` + its.map(i => `<details><summary class="i"><input type="checkbox" data-item="${esc(i.id)}" data-cat2="${cat}"> ${esc(i.title)} <span class="muted small" style="margin-left:auto">${i.nfiles} · ${size(i.bytes)}</span></summary>
+        ${i.files.map(f => `<div class="f" data-i="${esc(i.id)}" data-f="${esc(f.path)}"><span>${esc(f.path)}</span><span>${size(f.size)}</span></div>`).join("")}</details>`).join("");
+    }).join("");
+    $$("[data-cat]").forEach(cb => cb.onchange = () => $$(`[data-cat2="${cb.dataset.cat}"]`).forEach(i => i.checked = cb.checked));
+    $$("[data-item]").forEach(cb => cb.onclick = e => e.stopPropagation());
+    $$(".f").forEach(f => f.onclick = async () => {
+      $$(".f.on").forEach(x => x.classList.remove("on")); f.classList.add("on");
+      const r = await api("/api/file", {path: p, item: f.dataset.i, file: f.dataset.f});
+      $("#lprev").textContent = r.text ?? `(binary file, ${size(r.size)})`;
+    });
+  };
+  $("#loutp").onclick = async () => { if (await pickInto("folder", $("#lout"))) load(); };
+  $("#lout").onchange = load; $("#lref").onclick = load;
+  $("#limp").onclick = async () => { try { const r = await api("/api/import-backup", {out: $("#lout").value}); if (r.path) { state.library.path = r.path; load(); } } catch (e) { fail(e); } };
+  $("#lrest").onclick = () => { state.restore.path = state.library.path; location.hash = "restore"; };
+  $("#lver").onclick = async () => { try { const r = await runJob("/api/verify", {path: state.library.path}); r.problems.length ? modal("Problems found", `<pre class="preview">${esc(r.problems.join("\n"))}</pre>`) : toast("All files match their checksums.", "ok"); } catch (e) { fail(e); } };
+  $("#lext").onclick = async () => {
+    const items = $$("[data-item]:checked").map(i => i.dataset.item);
+    if (!items.length) return toast("Tick the items to extract under the file list.", "bad");
+    try { const r = await api("/api/extract", {path: state.library.path, items}); if (r.files) toast(`Extracted ${r.files} files.`, "ok"); } catch (e) { fail(e); }
+  };
+  $("#lshow").onclick = () => reveal(state.library.path);
+  $("#lcopy").onclick = () => copyToDialog(state.library.path);
+  $("#ldel").onclick = async () => {
+    if (!await confirmBox("Move to Trash", `Move this backup to the Trash?<br><code>${esc(state.library.path.split("/").pop())}</code>`, "Move to Trash")) return;
+    try { await api("/api/delete-backup", {path: state.library.path}); state.library.path = null; toast("Moved to Trash.", "ok"); show("library"); } catch (e) { fail(e); }
+  };
+  load();
+};
+
+PAGE.artifacts = async m => {
+  head(m, "Artifacts", "Browse the artifacts in a claude.ai data export. Each one is rebuilt at its final version and can be saved as its own file.");
+  if (!S) await rescan();
+  const A = state.artifacts;
+  m.insertAdjacentHTML("beforeend", `
+    <div class="row"><input type="text" class="grow" id="azip" placeholder="Your claude.ai export .zip"><button class="btn" id="azipp">Choose…</button><button class="btn primary" id="aload">Load</button><button class="btn" id="ahow">How do I get this?</button></div>
+    <div class="row"><input type="text" class="grow" id="aq" placeholder="Search titles and conversations"><span class="muted small" id="acount"></span></div>
+    <div class="scroll" style="max-height:300px"><table><thead><tr><th style="width:28px"><input type="checkbox" id="aall"></th><th>Title</th><th>Type</th><th>Conversation</th><th>Date</th><th class="num">Edits</th></tr></thead><tbody id="arows"></tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="aview">View in browser</button><button class="btn" id="aopen">Open with app</button><button class="btn" id="asave">Save selected…</button><button class="btn" id="asaveall">Save all…</button><span class="grow"></span><button class="btn" id="aback">Include in a backup</button></div>
+    <div class="pane" style="height:300px"><pre class="preview" id="aprev">Select an artifact to preview it.</pre></div>`);
+  $("#azip").value = A.zip; let focus = null;
+  const fill = () => {
+    const q = $("#aq").value.toLowerCase();
+    const rows = A.rows.filter(r => !q || (r.title + " " + (r.conversation || "")).toLowerCase().includes(q));
+    $("#arows").innerHTML = rows.map(r => `<tr class="click${focus === r.file ? " on" : ""}" data-f="${esc(r.file)}"><td><input type="checkbox" ${A.sel.has(r.file) ? "checked" : ""}></td><td>${esc(r.title)}</td><td class="small">${esc(r.type)}${r.language ? " / " + esc(r.language) : ""}</td><td class="small">${esc(r.conversation || "")}</td><td class="small">${esc((r.created_at || "").slice(0, 10))}</td><td class="num">${r.versions}</td></tr>`).join("")
+      || `<tr><td colspan="6" class="empty">${A.rows.length ? "No matches." : "Load a claude.ai export to see its artifacts."}</td></tr>`;
+    $("#acount").textContent = A.rows.length ? `${rows.length} of ${A.rows.length}` : "";
+    $$("#arows tr[data-f]").forEach(tr => {
+      const cb = $("input", tr);
+      cb.onclick = e => { e.stopPropagation(); cb.checked ? A.sel.add(tr.dataset.f) : A.sel.delete(tr.dataset.f); };
+      tr.onclick = async () => { focus = tr.dataset.f; $$("#arows tr").forEach(x => x.classList.toggle("on", x === tr));
+        const r = await api("/api/artifacts/file", {zip: A.zip, file: focus}); $("#aprev").textContent = r.text; };
+    });
+  };
+  $("#aall").onchange = () => { $$("#arows tr[data-f]").forEach(tr => $("#aall").checked ? A.sel.add(tr.dataset.f) : A.sel.delete(tr.dataset.f)); fill(); };
+  $("#aq").oninput = fill;
+  $("#azipp").onclick = () => pickInto("export", $("#azip"));
+  $("#ahow").onclick = () => openUrl(S.export_url);
+  $("#aload").onclick = async () => {
+    try { A.zip = $("#azip").value.trim(); const r = await runJob("/api/artifacts/load", {zip: A.zip}); A.rows = r.artifacts; A.sel = new Set(); fill();
+      toast(`Loaded ${r.artifacts.length} artifacts and ${r.prompts} prompt files.`, "ok"); } catch (e) { fail(e); }
+  };
+  const need = () => focus || (toast("Select an artifact first.", "bad"), null);
+  $("#aview").onclick = () => need() && openUrl(`/artifact?t=${encodeURIComponent(TOKEN)}&zip=${encodeURIComponent(A.zip)}&file=${encodeURIComponent(focus)}`);
+  $("#aopen").onclick = () => need() && api("/api/artifacts/open", {zip: A.zip, file: focus}).catch(fail);
+  $("#asave").onclick = async () => { if (!A.sel.size) return toast("Tick the artifacts to save.", "bad"); try { const r = await api("/api/artifacts/save", {zip: A.zip, files: [...A.sel]}); if (r.saved) toast(`Saved ${r.saved} artifacts.`, "ok"); } catch (e) { fail(e); } };
+  $("#asaveall").onclick = async () => { if (!A.rows.length) return toast("Load an export first.", "bad"); try { const r = await api("/api/artifacts/save", {zip: A.zip}); if (r.saved) toast(`Saved ${r.saved} artifacts.`, "ok"); } catch (e) { fail(e); } };
+  $("#aback").onclick = () => { state.backupExport = $("#azip").value.trim(); location.hash = "backup"; };
+  fill();
+};
+
+PAGE.schedule = async m => {
+  head(m, "Automatic backups", "Back up on a schedule, even when this app is closed. Older automatic backups go to the Trash so only the newest ones are kept.");
+  const s = await api("/api/schedule"); const st = await api("/api/settings");
+  m.insertAdjacentHTML("beforeend", `<div class="card"><h2 id="sstat"></h2>
+    <div class="row"><label class="k">How often</label><label class="opt"><input type="radio" name="sf" value="daily"> Every day</label>
+      <label class="opt"><input type="radio" name="sf" value="weekly"> Every week on</label><select id="sday">${s.weekdays.map((d, i) => `<option value="${i}">${d}</option>`).join("")}</select></div>
+    <div class="row"><label class="k">At</label><input type="number" id="sh" min="0" max="23" style="width:70px"> : <input type="number" id="sm" min="0" max="59" style="width:70px">
+      <span class="muted small">Your computer must be awake. On macOS a missed run happens at the next wake.</span></div>
+    <div class="row"><label class="k">What</label>${CATS.map(c => `<label class="opt"><input type="checkbox" data-c="${c}"> ${CAT[c]}</label>`).join("")}</div>
+    <div class="row"><label class="k">Accounts</label><label class="opt"><input type="radio" name="sa" value="current"> Signed-in account</label><label class="opt"><input type="radio" name="sa" value="all"> Every account</label></div>
+    <div class="row"><label class="k">Keep newest</label><input type="number" id="sk" min="1" max="365" style="width:80px"><span class="muted small">backups in the folder (older ones go to the Trash)</span></div>
+    <div class="row"><label class="k">Folder</label><input type="text" class="grow" id="sout"><button class="btn" id="soutp">Choose…</button></div>
+    <div class="note info">Keep-newest applies to every backup in the folder. To protect a backup, keep it in another folder.</div>
+    <div class="row"><button class="btn primary" id="ssave">Save schedule</button><button class="btn" id="soff">Turn off</button><button class="btn" id="srun">Run a backup now</button><span class="grow"></span><button class="btn" id="slog">Show log</button></div></div>
+    <div id="slogbox"></div>`);
+  const set = s => {
+    $("#sstat").textContent = "Status: " + s.describe;
+    $(`input[name=sf][value=${s.frequency || "daily"}]`).checked = true;
+    $("#sday").value = s.weekday || 0; $("#sh").value = s.hour ?? 2; $("#sm").value = s.minute ?? 0;
+    $$("[data-c]").forEach(c => c.checked = !s.categories || s.categories.includes(c.dataset.c));
+    $(`input[name=sa][value=${s.accounts === "all" ? "all" : "current"}]`).checked = true;
+    $("#sk").value = s.keep || st.settings.keep || 20; $("#sout").value = s.out_dir || st.out;
+  };
+  set(s);
+  const vals = () => {
+    const cats = $$("[data-c]:checked").map(c => c.dataset.c);
+    const h = +$("#sh").value, mi = +$("#sm").value, k = +$("#sk").value;
+    if (!cats.length) throw new Error("Choose at least one category.");
+    if (!(h >= 0 && h <= 23 && mi >= 0 && mi <= 59 && k >= 1)) throw new Error("Check the time and the number of backups to keep.");
+    return {frequency: $("input[name=sf]:checked").value, weekday: +$("#sday").value, hour: h, minute: mi, keep: k, categories: cats,
+      accounts: $("input[name=sa]:checked").value, out: $("#sout").value.trim()};
+  };
+  $("#soutp").onclick = () => pickInto("folder", $("#sout"));
+  $("#ssave").onclick = async () => { try { const r = await api("/api/schedule/save", vals()); toast("Automatic backups are on: " + esc(r.describe) + ".", "ok"); set(await api("/api/schedule")); } catch (e) { fail(e); } };
+  $("#soff").onclick = async () => { await api("/api/schedule/off"); toast("Automatic backups are off."); set(await api("/api/schedule")); };
+  $("#srun").onclick = async () => { try { const v = vals(); doBackup({categories: v.categories, accounts: v.accounts, out: v.out, keep: v.keep, label: "auto"}); } catch (e) { fail(e); } };
+  $("#slog").onclick = async () => { const r = await api("/api/schedule/log", {out: $("#sout").value}); $("#slogbox").innerHTML = `<div class="card"><h2>Automatic backup log</h2><div class="pane" style="height:260px"><pre class="preview">${esc(r.text || "The schedule hasn't run yet.")}</pre></div></div>`; };
+};
+
+PAGE.undo = async m => {
+  head(m, "Undo & activity", "Before every restore, the files it will change are saved here. Undo puts them back and removes the files the restore added.");
+  const r = await api("/api/snapshots"), act = await api("/api/activity");
+  const stamp = n => { const x = n.match(/(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)/); return x ? when(`${x[1]}-${x[2]}-${x[3]}T${x[4]}:${x[5]}:${x[6]}`) : n; };
+  m.insertAdjacentHTML("beforeend", `<div class="card"><h2>Restores you can undo</h2>
+    <table><thead><tr><th>Restore made</th><th class="num">Files</th><th class="num">Size</th><th></th></tr></thead><tbody>
+    ${r.snapshots.map(s => `<tr><td>${esc(stamp(s.name))}<br><span class="muted small mono">${esc(s.name)}</span></td><td class="num">${s.files ?? "?"}</td><td class="num">${size(s.size)}</td>
+      <td class="num"><button class="btn small primary" data-u="${esc(s.path)}">Undo</button> <button class="btn small" data-d="${esc(s.path)}">What it changed</button> <button class="btn small danger" data-x="${esc(s.path)}">Delete</button></td></tr>`).join("")
+      || `<tr><td colspan="4" class="empty">No restores yet.</td></tr>`}</tbody></table></div>
+    <div class="card"><h2>Activity</h2><div class="pane" style="height:300px"><pre class="preview" id="act"></pre></div></div>`);
+  $("#act").textContent = act.lines.length ? act.lines.join("\n") : "No activity yet.";
+  $("#act").parentElement.scrollTop = 1e9;
+  $$("[data-u]").forEach(b => b.onclick = async () => {
+    if (!await confirmBox("Undo restore", "Put back every file this restore changed, and remove the files it added?", "Undo")) return;
+    try { const x = await api("/api/undo", {snapshot: b.dataset.u}); toast(`Put back ${x.restored} files and removed ${x.removed}.`, "ok"); S = null; show("undo"); } catch (e) { fail(e); }
+  });
+  $$("[data-d]").forEach(b => b.onclick = async () => {
+    const x = await api("/api/snapshot", {path: b.dataset.d});
+    modal("Files changed by this restore", `<div class="scroll"><table><thead><tr><th>Undo will</th><th>File</th></tr></thead><tbody>${x.entries.map(e => `<tr><td>${e.existed ? "put back" : "remove"}</td><td class="mono">${esc(e.path)}</td></tr>`).join("")}</tbody></table></div>`);
+  });
+  $$("[data-x]").forEach(b => b.onclick = async () => {
+    if (!await confirmBox("Delete snapshot", "Delete this snapshot? You won't be able to undo that restore.", "Delete")) return;
+    await api("/api/snapshot/delete", {path: b.dataset.x}); show("undo");
+  });
+};
+
+PAGE.settings = async m => {
+  head(m, "Settings");
+  if (!S) await rescan();
+  const st = await api("/api/settings");
+  const labels = {CLAUDE_HOME: "Claude Code", HOME: "Home (.claude.json)", DESKTOP: "Claude Desktop", COWORK_FILES: "Cowork files"};
+  m.insertAdjacentHTML("beforeend", `<div class="card">
+    <div class="row"><label class="k">Backup folder</label><input type="text" class="grow" id="xout"><button class="btn" id="xoutp">Choose…</button></div>
+    <div class="row" style="align-items:flex-start"><label class="k">Default skill targets</label><div id="xsk"></div></div>
+    <div class="row"><label class="k"></label><label class="opt"><input type="checkbox" id="xred"> Remove API keys and tokens from backups by default</label></div>
+    <div class="row"><button class="btn primary" id="xsave">Save settings</button></div></div>
+    <div class="card"><h2>Where Claude keeps your data</h2><table><tbody>${Object.entries(st.roots).map(([k, v]) => `<tr><td style="width:180px">${labels[k] || k}</td><td class="mono">${esc(v)}</td><td class="num"><button class="btn small" data-rv="${esc(v)}">Show</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="card"><h2>About</h2><p class="muted">Claude Backup ${esc(S.version)} · Python ${esc(S.python)} · settings in <code>${esc(st.settings_file)}</code></p>
+      <div class="row"><button class="btn danger" id="xquit">Quit Claude Backup</button><span class="muted small">Stops the app in the background. Closing this tab is fine too; it stops by itself after a while.</span></div></div>`);
+  $("#xout").value = st.out; $("#xred").checked = !!st.settings.redact;
+  const sk = skillChecks($("#xsk"), st.settings.skill_targets || []);
+  $("#xoutp").onclick = () => pickInto("folder", $("#xout"));
+  $$("[data-rv]").forEach(b => b.onclick = () => reveal(b.dataset.rv));
+  $("#xsave").onclick = async () => { await api("/api/settings", {out_dir: $("#xout").value.trim() || null, skill_targets: sk(), redact: $("#xred").checked}); S = null; toast("Settings saved.", "ok"); };
+  $("#xquit").onclick = async () => {
+    if (!await confirmBox("Quit", "Stop Claude Backup? Open it again from its app icon.", "Quit")) return;
+    await api("/api/quit"); document.body.innerHTML = `<main><h1>Claude Backup has stopped</h1><p class="sub">You can close this tab. Open the app again from its icon.</p></main>`;
+  };
+};
+
+
+// ---------- cloud & drives ----------
+const KIND_HELP = {
+  "external": "Plug in the drive first. Backups go into a “Claude Backups” folder on it. Keep the drive somewhere other than next to your computer.",
+  "google-drive": "Uses the Google Drive for desktop app, which uploads the folder for you. Install it from google.com/drive/download and sign in, then pick its “My Drive” folder. No app? Use “Other cloud via rclone” instead.",
+  "onedrive": "Uses the OneDrive app (built into Windows; on a Mac, install it from the App Store) and sign in. Pick your OneDrive folder. No app? Use “Other cloud via rclone” instead.",
+  "dropbox": "Uses the Dropbox app. Install it and sign in, then pick your Dropbox folder.",
+  "icloud": "Uses iCloud Drive (System Settings → Apple Account → iCloud → iCloud Drive).",
+  "box": "Uses the Box Drive app. Install it and sign in, then pick your Box folder.",
+  "folder": "Any folder: a network drive (NAS), a mounted share, or another disk.",
+  "s3": "Amazon S3 or any S3-compatible service. Create a bucket (keep it private), and an access key that can list, read, write and delete in it. For Backblaze B2, Wasabi, Cloudflare R2 or MinIO, also enter the endpoint.",
+  "azure": "Azure Blob Storage. In the Azure portal open your storage account → Containers → your container → Shared access tokens. Allow Read, Add, Create, Write, Delete and List, set an expiry, then generate and paste the “Blob SAS URL”.",
+  "rclone": "rclone connects to 70+ clouds (Google Drive, OneDrive, Dropbox, Box, pCloud, Mega, SFTP, WebDAV…) directly, without their desktop apps. Install rclone, set up a remote (it opens your browser to sign in), then enter it here as  remote:folder.",
+};
+const S3_ENDPOINTS = [["", "Amazon S3 (leave empty)"], ["https://s3.us-west-004.backblazeb2.com", "Backblaze B2 (change the region in the URL)"],
+  ["https://s3.wasabisys.com", "Wasabi"], ["https://<account-id>.r2.cloudflarestorage.com", "Cloudflare R2"], ["https://nyc3.digitaloceanspaces.com", "DigitalOcean Spaces"], ["http://localhost:9000", "MinIO (self-hosted)"]];
+
+async function copyToDialog(path) {
+  const r = await api("/api/destinations");
+  if (!r.destinations.length) { toast("Add a drive or cloud first.", ""); location.hash = "cloud"; return; }
+  const id = await modal("Copy backup to…", `<p class="muted">${esc(path.split("/").pop())}</p>` +
+    r.destinations.map(d => `<label class="choice"><input type="radio" name="cdest" value="${esc(d.id)}"><span><b>${esc(d.name)}</b><br><span class="muted small">${esc(r.kinds[d.kind]?.label || d.type)}</span></span></label>`).join(""),
+    [["Cancel", null], ["Copy", "go", "primary"]]).then(v => v && ($("input[name=cdest]:checked") || {}).value);
+  if (!id) return;
+  try { await runJob("/api/destinations/upload", {id, path}); toast("Copied.", "ok"); } catch (e) { fail(e); }
+}
+
+PAGE.cloud = async m => {
+  head(m, "Cloud & drives", "Keep copies of your backups off this computer: on an external drive, in Google Drive, OneDrive, Dropbox, iCloud, Box, Amazon S3, Azure, or 70+ other clouds.");
+  const r = await api("/api/destinations");
+  const where = d => d.path ? d.path + (d.subfolder === "" ? "" : "/" + (d.subfolder || "Claude Backups")) : d.bucket ? `s3://${d.bucket}/${d.prefix || ""}${d.endpoint ? "  (" + d.endpoint + ")" : ""}` : d.container_url ? d.container_url + "/" + (d.prefix || "") : d.remote || "";
+  m.insertAdjacentHTML("beforeend", `
+    <div class="card"><div class="row"><h2 style="margin:0">Your destinations</h2><span class="grow"></span><button class="btn primary" id="cadd">Add a drive or cloud</button></div>
+      ${r.destinations.length ? `<table><thead><tr><th>Name</th><th>Where</th><th>Copies</th><th></th></tr></thead><tbody>
+        ${r.destinations.map(d => `<tr><td><b>${esc(d.name)}</b><br><span class="muted small">${esc(r.kinds[d.kind]?.label || d.type)}</span>${d.has_secret === false ? `<br><span class="pill" style="background:var(--bad-soft);color:var(--bad)">key missing</span>` : ""}</td>
+          <td class="mono">${esc(where(d))}</td><td class="small">${d.auto ? '<span class="pill ok">every backup</span>' : "manual"}<br>${d.keep ? "keeps newest " + d.keep : "keeps all"}</td>
+          <td class="num" style="white-space:nowrap"><button class="btn small" data-t="${esc(d.id)}">Test</button> <button class="btn small primary" data-b="${esc(d.id)}">Browse</button> <button class="btn small" data-up="${esc(d.id)}">Copy latest</button> <button class="btn small" data-e="${esc(d.id)}">Edit</button> <button class="btn small danger" data-x="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">No destinations yet. Right now your backups only live on this computer. If it's lost or the disk fails, they go with it.</div>`}
+      <p class="muted small">Passwords, secret keys and SAS tokens are stored in the ${esc(r.secrets_store)}, never in the settings file.</p></div>
+    <div id="cform"></div><div id="cbrowse"></div>`);
+  const cfgOf = id => r.destinations.find(d => d.id === id);
+  $$("[data-t]").forEach(b => b.onclick = async () => { try { const x = await runJob("/api/destinations/test", {id: b.dataset.t}); toast(esc(cfgOf(b.dataset.t).name) + ": " + esc(x.message), "ok"); } catch (e) { fail(e); } });
+  $$("[data-up]").forEach(b => b.onclick = async () => {
+    const lib = await api("/api/backups"); if (!lib.backups.length) return toast("There are no backups yet. Create one first.", "bad");
+    try { const x = await runJob("/api/destinations/upload", {id: b.dataset.up, path: lib.backups[0].path}); toast(`Copied ${esc(lib.backups[0].name)}` + (x.removed.length ? `, removed ${x.removed.length} older` : ""), "ok"); } catch (e) { fail(e); }
+  });
+  $$("[data-x]").forEach(b => b.onclick = async () => {
+    if (!await confirmBox("Remove destination", `Stop using <b>${esc(cfgOf(b.dataset.x).name)}</b>? Backups already stored there are not deleted.`, "Remove")) return;
+    await api("/api/destinations/remove", {id: b.dataset.x}); show("cloud");
+  });
+  $$("[data-e]").forEach(b => b.onclick = () => destForm(r, cfgOf(b.dataset.e)));
+  $$("[data-b]").forEach(b => b.onclick = () => browseDest(cfgOf(b.dataset.b)));
+  $("#cadd").onclick = () => destForm(r, null);
+  if (!r.destinations.length) destForm(r, null);
+};
+
+async function browseDest(d) {
+  const box = $("#cbrowse");
+  box.innerHTML = `<div class="card"><h2>Backups in ${esc(d.name)}</h2><div class="note info">Loading…</div></div>`;
+  box.scrollIntoView({behavior: "smooth"});
+  try {
+    const x = await runJob("/api/destinations/list", {id: d.id});
+    box.innerHTML = `<div class="card"><h2>Backups in ${esc(d.name)}</h2>
+      ${x.backups.length ? `<div class="scroll"><table><thead><tr><th>Backup</th><th>Stored</th><th class="num">Size</th><th></th></tr></thead><tbody>
+      ${x.backups.map(b => `<tr><td class="mono">${esc(b.name)}</td><td class="small">${esc(when(b.modified))}</td><td class="num">${size(b.size)}</td>
+        <td class="num" style="white-space:nowrap"><button class="btn small primary" data-dr="${esc(b.name)}">Download &amp; restore</button> <button class="btn small" data-dl="${esc(b.name)}">Download</button> <button class="btn small danger" data-dd="${esc(b.name)}">Delete</button></td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="empty">No backups here yet. Use “Copy latest”, or tick “Copy every new backup here”.</div>`}</div>`;
+    const dl = async name => { const r = await runJob("/api/destinations/download", {id: d.id, name}); toast("Downloaded to your backup folder.", "ok"); return r.path; };
+    $$("[data-dl]", box).forEach(b => b.onclick = () => dl(b.dataset.dl).catch(fail));
+    $$("[data-dr]", box).forEach(b => b.onclick = async () => { try { state.restore.path = await dl(b.dataset.dr); location.hash = "restore"; } catch (e) { fail(e); } });
+    $$("[data-dd]", box).forEach(b => b.onclick = async () => {
+      if (!await confirmBox("Delete from " + esc(d.name), `Permanently delete <code>${esc(b.dataset.dd)}</code> from ${esc(d.name)}? This can't be undone.`, "Delete")) return;
+      try { await api("/api/destinations/delete", {id: d.id, name: b.dataset.dd}); browseDest(d); } catch (e) { fail(e); }
+    });
+  } catch (e) { box.innerHTML = `<div class="card"><h2>Backups in ${esc(d.name)}</h2><div class="note bad">${esc(e.message)}</div></div>`; }
+}
+
+function destForm(r, d) {
+  const box = $("#cform");
+  let kind = d ? d.kind : null;
+  const drawKinds = () => {
+    box.innerHTML = `<div class="card"><h2>${d ? "Edit " + esc(d.name) : "Add a drive or cloud"}</h2><p class="sub">Where should copies of your backups go?</p>
+      ${r.detected.length ? `<h3>Found on this computer</h3><div class="grid">${r.detected.map((x, i) => `<button class="tile btn" style="text-align:left" data-det="${i}"><b>${esc(x.label)}</b><span class="muted small mono">${esc(x.path)}</span></button>`).join("")}</div>` : ""}
+      <h3>Or choose a type</h3><div class="grid">${Object.entries(r.kinds).map(([k, v]) => `<button class="tile btn" style="text-align:left" data-kind="${k}"><b>${esc(v.label)}</b></button>`).join("")}</div></div>`;
+    $$("[data-kind]", box).forEach(b => b.onclick = () => { kind = b.dataset.kind; drawForm({}); });
+    $$("[data-det]", box).forEach(b => b.onclick = () => { const x = r.detected[+b.dataset.det]; kind = x.kind; drawForm({path: x.path, name: x.label.replace(/^Drive: /, "")}); });
+    box.scrollIntoView({behavior: "smooth"});
+  };
+  const drawForm = pre => {
+    const v = Object.assign({}, d || {}, pre), type = r.kinds[kind].type;
+    const det = r.detected.filter(x => x.kind === kind);
+    const fields = {
+      folder: `<div class="row"><label class="k">Folder</label><input type="text" class="grow" id="fpath" value="${esc(v.path || (det[0] || {}).path || "")}"><button class="btn" id="fpick">Choose…</button></div>
+        ${det.length > 1 ? `<div class="row"><label class="k"></label><select id="fdet">${det.map(x => `<option value="${esc(x.path)}">${esc(x.label)}</option>`).join("")}</select></div>` : ""}
+        <div class="row"><label class="k">Subfolder</label><input type="text" id="fsub" value="${esc(v.subfolder ?? "Claude Backups")}"><span class="muted small">created inside the folder; leave empty to use the folder itself</span></div>`,
+      s3: `<div class="row"><label class="k">Bucket</label><input type="text" class="grow" id="fbucket" value="${esc(v.bucket || "")}" placeholder="my-claude-backups"></div>
+        <div class="row"><label class="k">Folder in bucket</label><input type="text" class="grow" id="fprefix" value="${esc(v.prefix || "claude-backups")}"></div>
+        <div class="row"><label class="k">Region</label><input type="text" id="fregion" value="${esc(v.region || "")}" placeholder="us-east-1"></div>
+        <div class="row"><label class="k">Endpoint</label><input type="text" class="grow" id="fendpoint" value="${esc(v.endpoint || "")}" placeholder="Leave empty for Amazon S3"><select id="fpreset">${S3_ENDPOINTS.map(([u, l]) => `<option value="${esc(u)}">${esc(l)}</option>`).join("")}</select></div>
+        <div class="row"><label class="k">Sign in with</label><label class="opt"><input type="radio" name="fcred" value="key" ${v.profile ? "" : "checked"}> Access key</label><label class="opt"><input type="radio" name="fcred" value="profile" ${v.profile ? "checked" : ""}> AWS profile from ~/.aws</label></div>
+        <div id="fkey"><div class="row"><label class="k">Access key ID</label><input type="text" class="grow" id="fak" value="${esc(v.access_key || "")}"></div>
+          <div class="row"><label class="k">Secret access key</label><input type="password" class="grow" id="fsk" placeholder="${d && d.has_secret ? "Saved. Type a new one to replace it." : ""}" autocomplete="off"></div></div>
+        <div id="fprof" style="display:none"><div class="row"><label class="k">Profile name</label><input type="text" id="fprofile" value="${esc(v.profile || "default")}"></div></div>`,
+      azure: `<div class="row"><label class="k">Blob SAS URL</label><input type="password" class="grow" id="fsas" placeholder="${d && d.has_secret ? "Saved. Paste a new one to replace it." : "https://account.blob.core.windows.net/container?sv=…&sig=…"}" autocomplete="off"></div>
+        ${v.container_url ? `<div class="row"><label class="k">Container</label><span class="mono">${esc(v.container_url)}</span></div>` : ""}
+        <div class="row"><label class="k">Folder in container</label><input type="text" class="grow" id="fprefix" value="${esc(v.prefix || "claude-backups")}"></div>`,
+      rclone: r.rclone ? `<div class="row"><label class="k">Remote and folder</label><input type="text" class="grow" id="fremote" value="${esc(v.remote || (r.rclone_remotes[0] ? r.rclone_remotes[0].name + ":Claude Backups" : ""))}" placeholder="gdrive:Claude Backups"></div>
+          <div class="row"><label class="k">Your remotes</label><span>${r.rclone_remotes.map(x => `<span class="pill">${esc(x.name)}: ${esc(x.type)}</span>`).join(" ") || '<span class="muted">none yet</span>'}</span><button class="btn small" id="frcfg">Set up a new remote…</button></div>`
+        : `<div class="note warn">rclone isn't installed. Install it from <b>rclone.org/install</b> (on a Mac with Homebrew: <code>brew install rclone</code>), then come back and click Refresh.</div><div class="row"><button class="btn" id="frref">Refresh</button></div>`,
+    }[type];
+    box.innerHTML = `<div class="card"><h2>${esc(r.kinds[kind].label)}</h2><div class="note info">${esc(KIND_HELP[kind])}</div>
+      <div class="row"><label class="k">Name</label><input type="text" class="grow" id="fname" value="${esc(v.name || r.kinds[kind].label.split(" (")[0])}"></div>
+      ${fields}
+      <div class="row"><label class="k"></label><label class="opt"><input type="checkbox" id="fauto" ${v.auto ?? true ? "checked" : ""}> Copy every new backup here automatically (including automatic backups)</label></div>
+      <div class="row"><label class="k">Keep newest</label><input type="number" id="fkeep" min="0" style="width:80px" value="${v.keep ?? 30}"><span class="muted small">backups here (0 keeps all). Older ones are deleted from this destination.</span></div>
+      <div class="row"><button class="btn" id="fback">← Other types</button><span class="grow"></span><button class="btn primary" id="fsave">Save and test</button></div></div>`;
+    const credSync = () => { const p = ($("input[name=fcred]:checked") || {}).value === "profile"; if ($("#fkey")) { $("#fkey").style.display = p ? "none" : "block"; $("#fprof").style.display = p ? "block" : "none"; } };
+    $$("input[name=fcred]").forEach(x => x.onchange = credSync); credSync();
+    if ($("#fpick")) $("#fpick").onclick = () => pickInto("folder", $("#fpath"));
+    if ($("#fdet")) $("#fdet").onchange = () => $("#fpath").value = $("#fdet").value;
+    if ($("#fpreset")) $("#fpreset").onchange = () => { $("#fendpoint").value = $("#fpreset").value; };
+    if ($("#frcfg")) $("#frcfg").onclick = () => api("/api/rclone/config").then(() => toast("Follow the steps in the Terminal window, then click Refresh.")).catch(fail);
+    if ($("#frref")) $("#frref").onclick = () => show("cloud");
+    $("#fback").onclick = drawKinds;
+    $("#fsave").onclick = async () => {
+      const val = id => $(id) ? $(id).value.trim() : undefined;
+      const body = {id: d && d.id, kind, name: val("#fname"), auto: $("#fauto").checked, keep: +$("#fkeep").value || 0,
+        path: val("#fpath"), subfolder: $("#fsub") ? $("#fsub").value.trim() : undefined, bucket: val("#fbucket"), prefix: val("#fprefix"), region: val("#fregion"),
+        endpoint: val("#fendpoint"), remote: val("#fremote"), container_url: val("#fsas") ? val("#fsas") : (d || {}).container_url, sas: undefined};
+      if (type === "s3") {
+        if (($("input[name=fcred]:checked") || {}).value === "profile") { body.profile = val("#fprofile") || "default"; body.access_key = ""; }
+        else { body.access_key = val("#fak"); body.secret_key = val("#fsk"); body.profile = ""; }
+      }
+      if (type === "azure" && !val("#fsas") && !(d && d.container_url)) return toast("Paste the Blob SAS URL.", "bad");
+      if (type === "folder" && !body.path) return toast("Choose a folder.", "bad");
+      if (type === "s3" && !body.bucket) return toast("Enter the bucket name.", "bad");
+      if (type === "rclone" && !(body.remote || "").includes(":")) return toast("Enter a remote like  gdrive:Claude Backups", "bad");
+      try {
+        const saved = (await api("/api/destinations/save", body)).destination;
+        try { const t = await runJob("/api/destinations/test", {id: saved.id}); toast(`${esc(saved.name)}: ${esc(t.message)}`, "ok"); }
+        catch (e) { toast(`Saved, but the test failed: ${esc(e.message)}`, "bad"); }
+        show("cloud");
+      } catch (e) { fail(e); }
+    };
+    box.scrollIntoView({behavior: "smooth"});
+  };
+  kind ? drawForm({}) : drawKinds();
+}
+
+// ---------- help ----------
+function md(src) {
+  const inline = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\*([^*]+)\*/g, "<i>$1</i>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/\[([^\]]+)\]\(#([^)\s]+)\)/g, '<a href="#help" data-anchor="$2">$1</a>');
+  const lines = src.split("\n"), out = []; let i = 0;
+  const slug = t => t.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
+  while (i < lines.length) {
+    const l = lines[i];
+    if (l.startsWith("```")) { const buf = []; i++; while (i < lines.length && !lines[i].startsWith("```")) buf.push(lines[i++]); i++; out.push(`<pre class="preview" style="background:var(--bg);border-radius:8px">${esc(buf.join("\n"))}</pre>`); continue; }
+    const h = l.match(/^(#{1,4})\s+(.*)/);
+    if (h) { const n = h[1].length; out.push(`<h${n + 1} id="h-${slug(h[2])}" style="margin-top:${n < 3 ? 26 : 16}px">${inline(h[2])}</h${n + 1}>`); i++; continue; }
+    if (/^\|/.test(l)) { const rows = []; while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = r => r.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      out.push(`<table style="margin:8px 0"><thead><tr>${cells(rows[0]).map(c => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rows.slice(2).map(r => `<tr>${cells(r).map(c => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`); continue; }
+    if (/^\s*([-*]|\d+\.)\s/.test(l)) { const ordered = /^\s*\d+\./.test(l), items = [];
+      while (i < lines.length && /^\s*([-*]|\d+\.)\s/.test(lines[i])) { let t = lines[i++].replace(/^\s*([-*]|\d+\.)\s/, ""); while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*([-*]|\d+\.)\s/.test(lines[i])) t += " " + lines[i++].trim(); items.push(t); }
+      out.push(`<${ordered ? "ol" : "ul"}>${items.map(t => `<li>${inline(t)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`); continue; }
+    if (l.startsWith(">")) { const buf = []; while (i < lines.length && lines[i].startsWith(">")) buf.push(lines[i++].replace(/^>\s?/, "")); out.push(`<div class="note info">${inline(buf.join(" "))}</div>`); continue; }
+    if (!l.trim()) { i++; continue; }
+    const buf = []; while (i < lines.length && lines[i].trim() && !/^(#|```|\||>|\s*([-*]|\d+\.)\s)/.test(lines[i])) buf.push(lines[i++]);
+    out.push(`<p>${inline(buf.join(" "))}</p>`);
+  }
+  return out.join("\n");
+}
+PAGE.help = async m => {
+  const r = await api("/api/help");
+  const toc = [...r.text.matchAll(/^##\s+(.*)$/gm)].map(x => x[1]);
+  const slug = t => t.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
+  m.insertAdjacentHTML("beforeend", `<div class="row"><input type="text" class="grow" id="hq" placeholder="Search the guide"></div>
+    <div class="card small">${toc.map(t => `<a href="#help" data-anchor="${slug(t)}" style="margin-right:14px;white-space:nowrap">${esc(t)}</a>`).join(" ")}</div>
+    <div class="card" id="hbody">${md(r.text)}</div>`);
+  m.addEventListener("click", e => { const a = e.target.closest("[data-anchor]"); if (a) { e.preventDefault(); const el = document.getElementById("h-" + a.dataset.anchor); el && el.scrollIntoView({behavior: "smooth"}); } });
+  $("#hq").oninput = () => {
+    const q = $("#hq").value.toLowerCase(); $$("#hbody > *").forEach(el => el.style.display = !q || el.textContent.toLowerCase().includes(q) ? "" : "none");
+  };
+};
+
+setInterval(() => api("/api/heartbeat").catch(() => {}), 20000);
+show(location.hash.slice(1));
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-backup"
+dynamic = ["version"]
+description = "Back up, restore and migrate Claude Desktop and Claude Code data, to drives and clouds"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.8"
+authors = [{name = "The Claude Backup Authors"}]
+keywords = ["claude", "backup", "restore", "migration", "skills", "s3", "azure", "google-drive", "onedrive"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = []
+
+[project.scripts]
+claude-backup = "claude_backup.cli:main"
+
+[tool.setuptools]
+packages = ["claude_backup"]
+
+[tool.setuptools.dynamic]
+version = {attr = "claude_backup.__version__"}
+
+[tool.setuptools.package-data]
+claude_backup = ["ui.html", "docs/*.md"]
